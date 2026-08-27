@@ -1,0 +1,318 @@
+{{-- resources/views/coordinator/students/import.blade.php --}}
+
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Import Student Master List – InternTrack</title>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+
+<body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+
+{{-- ══ NAV ══ --}}
+<header class="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm shadow-blue-50">
+    <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow shadow-blue-200 flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-5 h-5">
+                        <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
+                        <path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
+                    </svg>
+                </div>
+                <div class="leading-tight">
+                    <span class="text-base font-extrabold text-slate-800 tracking-tight">InternTrack</span>
+                    <span class="hidden sm:block text-[10px] font-semibold text-blue-500 tracking-widest uppercase -mt-0.5">UCU · CTE</span>
+                </div>
+            </div>
+
+            <nav class="hidden md:flex items-center gap-1" aria-label="Coordinator navigation">
+                <a href="{{ route('coordinator.dashboard') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Dashboard</a>
+                <a href="{{ route('coordinator.students.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white bg-blue-600">Students</a>
+                <a href="{{ route('coordinator.partner-schools.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Partner Schools</a>
+                <a href="{{ route('coordinator.deployments.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Deployments</a>
+                <a href="#" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Reports</a>
+            </nav>
+
+            <div class="flex items-center gap-3">
+                <div class="hidden sm:flex flex-col items-end leading-tight">
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Coordinator</span>
+                    <span class="text-xs font-semibold text-slate-700">{{ auth()->user()->first_name ?? 'Coordinator' }}</span>
+                </div>
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open" class="flex items-center gap-2 pl-1 pr-2.5 py-1 rounded-xl border border-slate-200 bg-white hover:bg-blue-50 hover:border-blue-200 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1">
+                        <div class="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold select-none">
+                            {{ strtoupper(substr(auth()->user()->first_name ?? 'C', 0, 1)) }}
+                        </div>
+                        <span class="hidden sm:block text-sm font-semibold text-slate-700">{{ auth()->user()->first_name ?? 'Coordinator' }}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div x-show="open" @click.outside="open = false"
+                         x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                         x-transition:leave="transition ease-in duration-75" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+                         class="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-slate-100 shadow-lg shadow-slate-200/60 py-1 z-50">
+                        <a href="#" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            My Profile
+                        </a>
+                        <div class="my-1 border-t border-slate-100"></div>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                                Sign Out
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+
+<main class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    {{-- ── Breadcrumb ── --}}
+    <nav class="flex items-center gap-1.5 text-xs text-slate-400">
+        <a href="{{ route('coordinator.dashboard') }}" class="hover:text-blue-600 font-medium">Dashboard</a>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><polyline points="9 18 15 12 9 6"/></svg>
+        <a href="{{ route('coordinator.students.index') }}" class="hover:text-blue-600 font-medium">Student Management</a>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><polyline points="9 18 15 12 9 6"/></svg>
+        <span class="text-slate-500 font-medium">Import Student Master List</span>
+    </nav>
+
+    {{-- ── Page Header ── --}}
+    <div>
+        <p class="text-[11px] font-bold tracking-[0.2em] uppercase text-blue-500 mb-0.5">Coordinator</p>
+        <h1 class="text-2xl font-extrabold text-slate-800 leading-tight">Upload Student Master List</h1>
+        <p class="text-sm text-slate-400 mt-0.5">Upload an Excel or CSV file — InternTrack will automatically detect the columns for you.</p>
+    </div>
+
+    {{-- ── Flash Messages ── --}}
+    @if (session('success'))
+        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-semibold px-4 py-3 rounded-xl">
+            {{ session('success') }}
+        </div>
+    @endif
+
+    @if ($errors->any())
+        <div class="bg-red-50 border border-red-200 text-red-600 text-sm font-medium px-4 py-3 rounded-xl">
+            <p class="font-semibold mb-1">Please correct the following errors:</p>
+            <ul class="list-disc list-inside space-y-0.5">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    {{-- ── Import Summary Alert (Shows only after a successful upload) ── --}}
+    @if (session('importSummary'))
+        @php $summary = session('importSummary'); @endphp
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div class="bg-white border border-slate-100 rounded-2xl shadow-sm shadow-blue-50 p-5">
+                <p class="text-2xl font-extrabold text-slate-800">{{ $summary['total'] ?? 0 }}</p>
+                <p class="text-xs font-semibold text-slate-400 mt-1">Total Records</p>
+            </div>
+            <div class="bg-emerald-50 border border-emerald-100 rounded-2xl shadow-sm p-5">
+                <p class="text-2xl font-extrabold text-emerald-700">{{ $summary['success'] ?? 0 }}</p>
+                <p class="text-xs font-semibold text-emerald-600 mt-1">Imported Successfully</p>
+            </div>
+            <div class="bg-red-50 border border-red-100 rounded-2xl shadow-sm p-5">
+                <p class="text-2xl font-extrabold text-red-600">{{ $summary['failed'] ?? 0 }}</p>
+                <p class="text-xs font-semibold text-red-500 mt-1">Failed Records</p>
+            </div>
+            <div class="bg-amber-50 border border-amber-100 rounded-2xl shadow-sm p-5">
+                <p class="text-2xl font-extrabold text-amber-600">{{ $summary['duplicate'] ?? 0 }}</p>
+                <p class="text-xs font-semibold text-amber-600 mt-1">Duplicate Records</p>
+            </div>
+        </div>
+    @endif
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {{-- ── Step 1: Upload Card ── --}}
+        <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6 space-y-5">
+            <div>
+                <h2 class="text-sm font-bold text-slate-800 tracking-tight">Upload Student Master List</h2>
+            </div>
+
+            <form action="{{ route('coordinator.students.import.upload') }}" method="POST" enctype="multipart/form-data"
+                  x-data="{ dragging: false, fileName: null }" class="space-y-5">
+                @csrf
+
+                <label for="file"
+                       @dragover.prevent="dragging = true"
+                       @dragleave.prevent="dragging = false"
+                       @drop.prevent="dragging = false; $refs.fileInput.files = $event.dataTransfer.files; fileName = $event.dataTransfer.files[0]?.name ?? null;"
+                       :class="dragging ? 'border-blue-400 bg-blue-50/60' : 'border-slate-200 bg-slate-50'"
+                       class="flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-2xl
+                              px-6 py-12 text-center cursor-pointer transition-colors duration-150 hover:border-blue-300 hover:bg-blue-50/40">
+
+                    <div class="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7">
+                            <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
+                            <path d="M12 12v9"/>
+                            <path d="m16 16-4-4-4 4"/>
+                        </svg>
+                    </div>
+
+                    <div>
+                        <p class="text-sm font-semibold text-slate-700">
+                            <span x-show="!fileName">Drag &amp; Drop Excel or CSV<br class="hidden sm:block"> or Upload File</span>
+                            <span x-show="fileName" x-text="fileName" class="text-blue-700 font-bold"></span>
+                        </p>
+                        <p class="text-xs text-slate-400 mt-1.5">Accepted: .xlsx, .xls, .csv &middot; Maximum: 5MB</p>
+                    </div>
+
+                    <input type="file" name="file" id="file" x-ref="fileInput" accept=".csv,.xlsx,.xls"
+                           class="hidden" @change="fileName = $event.target.files[0]?.name ?? null" required>
+                </label>
+                @error('file')
+                    <p class="text-xs text-red-500 -mt-2">{{ $message }}</p>
+                @enderror
+
+                <div class="flex flex-col sm:flex-row items-center gap-3">
+                    <button type="submit"
+                            class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold
+                                   transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1">
+                        Upload File
+                    </button>
+                    <a href="{{ route('coordinator.students.import.template') }}"
+                       class="w-full sm:w-auto text-center px-5 py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-semibold
+                              transition-colors duration-150">
+                        Download Template
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        {{-- ── Import Guidelines Card ── --}}
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
+            <h2 class="text-sm font-bold text-slate-800 tracking-tight mb-4">Import Guidelines</h2>
+            <ul class="space-y-2.5 text-sm text-slate-600">
+                <li class="flex items-start gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></span>
+                    File must be Excel (.xlsx, .xls) or CSV.
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></span>
+                    Student Number must be unique.
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></span>
+                    Email Address is required.
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></span>
+                    Mobile Number is required.
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></span>
+                    Duplicate student numbers will be skipped.
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></span>
+                    Columns are detected automatically — you'll only be asked about anything unclear.
+                </li>
+                <li class="flex items-start gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></span>
+                    Login credentials will be sent through email.
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    {{-- ── Recent Import History ── --}}
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100">
+            <h2 class="text-sm font-bold text-slate-800 tracking-tight">Recent Import History</h2>
+        </div>
+
+        @if (isset($imports) && $imports->isNotEmpty())
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-100">
+                            <th class="text-left px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">File Name</th>
+                            <th class="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">Imported By</th>
+                            <th class="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">Total</th>
+                            <th class="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">Successful</th>
+                            <th class="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">Failed</th>
+                            <th class="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">Duplicate</th>
+                            <th class="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">Date Imported</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        @foreach ($imports as $import)
+                            <tr class="hover:bg-blue-50/40 transition-colors duration-100">
+                                {{-- Cleans up the randomized hashed storage directory and shows original user-facing name --}}
+                                <td class="px-6 py-3 text-slate-700 font-medium">{{ basename($import->file_name) }}</td>
+                                <td class="px-4 py-3 text-slate-600 whitespace-nowrap">
+                                    {{ $import->importedBy?->first_name }} {{ $import->importedBy?->last_name }}
+                                </td>
+                                <td class="px-4 py-3 text-slate-600">{{ $import->total_records }}</td>
+                                <td class="px-4 py-3">
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold">
+                                        {{ $import->successful_records }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-600 text-[11px] font-semibold">
+                                        {{ $import->failed_records }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 text-[11px] font-semibold">
+                                        {{ $import->duplicate_records }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-slate-500 whitespace-nowrap">{{ $import->created_at->format('M d, Y g:i A') }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            @if ($imports->hasPages())
+                <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+                    {{ $imports->links() }}
+                </div>
+            @endif
+        @else
+            <div class="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
+                <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-slate-300">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <path d="M12 18v-6"/>
+                        <path d="m9 15 3-3 3 3"/>
+                    </svg>
+                </div>
+                <div class="text-center">
+                    <p class="text-sm font-bold text-slate-500">No import history yet.</p>
+                    <p class="text-xs text-slate-400 mt-1 max-w-xs">
+                        Upload a student master list to begin creating student accounts.
+                    </p>
+                </div>
+            </div>
+        @endif
+    </div>
+
+</main>
+
+<footer class="mt-8 border-t border-slate-100 bg-white">
+    <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <p class="text-[11px] text-slate-400">&copy; {{ date('Y') }} UCU · College of Teacher Education. All rights reserved.</p>
+        <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="text-[11px] font-semibold text-slate-400">InternTrack v1.0 — System Online</span>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>
