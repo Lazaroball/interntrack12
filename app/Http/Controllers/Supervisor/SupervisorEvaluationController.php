@@ -292,17 +292,17 @@ class SupervisorEvaluationController extends Controller
      * GET /supervisor/evaluations/{evaluation}
      * Route name: supervisor.evaluations.show
      */
-    public function show(Evaluation $evaluation)
-    {
-        $supervisor = $this->currentSupervisor();
+   public function show(Evaluation $evaluation)
+{
+    $supervisor = $this->currentSupervisor();
 
-        abort_unless($evaluation->supervisor_id === $supervisor->id, 403);
+    abort_unless($evaluation->supervisor_id === $supervisor->id, 403);
 
-        return view('supervisor.evaluations.show', [
-            'evaluation'        => $evaluation->load(['student', 'supervisor', 'observationSchedule']),
-            'areaCriterionCaps' => $this->areaCriterionCaps,
-        ]);
-    }
+    return view('supervisor.evaluations.show', [
+        'evaluation'        => $evaluation->load(['student', 'supervisor', 'observationSchedule', 'otherEvaluatorResults']),
+        'areaCriterionCaps' => $this->areaCriterionCaps,
+    ]);
+}
 
     /**
      * Display the form for editing an existing evaluation.
@@ -372,3 +372,4 @@ class SupervisorEvaluationController extends Controller
             ->with('success', 'Evaluation updated successfully.');
     }
 }
+

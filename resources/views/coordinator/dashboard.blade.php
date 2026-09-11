@@ -46,6 +46,13 @@
                         : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
                     Students
                 </a>
+                                <a href="{{ route('coordinator.requirements.review.index') }}"
+                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-150
+                   {{ request()->routeIs('coordinator.requirements.*')
+                        ? 'bg-blue-600 text-white font-semibold shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
+                    Requirements
+                </a>
 
                 <a href="{{ route('coordinator.partner-schools.index') }}"
                    class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-150

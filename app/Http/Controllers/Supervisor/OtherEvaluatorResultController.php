@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Supervisor;
 use App\Http\Controllers\Controller;
 use App\Models\Evaluation;
 use App\Models\OtherEvaluatorResult;
+use App\Models\Supervisor;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,21 +24,17 @@ class OtherEvaluatorResultController extends Controller
     /**
      * Display a listing of other evaluator results for a given evaluation.
      */
-    public function index(Evaluation $evaluation): JsonResponse
+    public function index(Evaluation $evaluation): View
     {
         $this->authorizeEvaluationOwner($evaluation);
 
-        $results = $evaluation->otherEvaluatorResults()
+        $otherEvaluatorResults = $evaluation->otherEvaluatorResults()
             ->latest()
-            ->get()
-            ->map(function (OtherEvaluatorResult $result) {
-                $result->grade_image_url = $result->grade_image_url;
-                return $result;
-            });
+            ->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $results,
+        return view('supervisor.evaluations.other-evaluator-results.index', [
+            'evaluation' => $evaluation,
+            'otherEvaluatorResults' => $otherEvaluatorResults,
         ]);
     }
 
@@ -242,8 +240,10 @@ class OtherEvaluatorResultController extends Controller
      */
     protected function authorizeEvaluationOwner(Evaluation $evaluation): void
     {
-        if ($evaluation->supervisor_id !== auth()->id()) {
-            abort(403, 'You are not authorized to manage results for this evaluation.');
-        }
+        $supervisor = Supervisor::where('user_id', auth()->id())->first();
+
+        abort_unless($supervisor !== null, 403, 'No supervisor profile found for this account.');
+
+        abort_unless($evaluation->supervisor_id === $supervisor->id, 403, 'You are not authorized to manage results for this evaluation.');
     }
 }

@@ -17,6 +17,8 @@ use App\Http\Controllers\Coordinator\PartnerSchoolController;
 use App\Http\Controllers\Coordinator\DeploymentController as CoordinatorDeploymentController;
 use App\Http\Controllers\Coordinator\StudentImportController;
 use App\Http\Controllers\StudentDeploymentController;
+use App\Http\Controllers\Coordinator\RequirementDefinitionController;
+use App\Http\Controllers\Coordinator\RequirementReviewController;
 /*
 |--------------------------------------------------------------------------
 | Supervisor
@@ -28,6 +30,15 @@ use App\Http\Controllers\Supervisor\SupervisorStudentController;
 use App\Http\Controllers\Supervisor\ObservationScheduleController;
 use App\Http\Controllers\Supervisor\SupervisorEvaluationController;
 use App\Http\Controllers\Supervisor\OtherEvaluatorResultController;
+/*
+|--------------------------------------------------------------------------
+| Student
+|--------------------------------------------------------------------------
+*/
+use App\Http\Controllers\Student\StudentDashboardController;
+use App\Http\Controllers\Student\StudentProfileController;
+use App\Http\Controllers\Student\FieldStudyController;
+use App\Http\Controllers\Student\RequirementController;
 /*
 |--------------------------------------------------------------------------
 | Home
@@ -201,8 +212,33 @@ Route::patch('/deployments/{deployment}/cancel', [CoordinatorDeploymentControlle
 
         Route::post('/student-import/process', [StudentImportController::class, 'process'])
             ->name('students.import.process');
+            // Requirement Definitions
+Route::prefix('requirements/definitions')
+    ->name('requirements.definitions.')
+    ->group(function () {
+        Route::get('/', [RequirementDefinitionController::class, 'index'])->name('index');
+        Route::get('/create', [RequirementDefinitionController::class, 'create'])->name('create');
+        Route::post('/', [RequirementDefinitionController::class, 'store'])->name('store');
+        Route::get('/{definition}/edit', [RequirementDefinitionController::class, 'edit'])->name('edit');
+        Route::put('/{definition}', [RequirementDefinitionController::class, 'update'])->name('update');
+        Route::patch('/{definition}/toggle-active', [RequirementDefinitionController::class, 'toggleActive'])->name('toggle-active');
+        Route::delete('/{definition}', [RequirementDefinitionController::class, 'destroy'])->name('destroy');
+    });
+
+// Requirement Review
+Route::prefix('requirements/review')
+    ->name('requirements.review.')
+    ->group(function () {
+        Route::get('/', [RequirementReviewController::class, 'index'])->name('index');
+        Route::get('/{student}', [RequirementReviewController::class, 'show'])->name('show');
+        Route::patch('/submissions/{requirement}', [RequirementReviewController::class, 'updateSubmission'])->name('update-submission');
+        Route::get('/submissions/{requirement}/file', [RequirementReviewController::class, 'file'])->name('file');
+        Route::patch('/{student}/accept', [RequirementReviewController::class, 'acceptFieldStudy'])->name('accept');
+        Route::patch('/{student}/reject', [RequirementReviewController::class, 'rejectFieldStudy'])->name('reject');
+    
 
     });
+     });
 
 /*
 |--------------------------------------------------------------------------
@@ -368,16 +404,29 @@ Route::prefix('supervisor')
 
 Route::middleware(['auth', 'role:student'])->group(function () {
 
-    Route::get('/student/dashboard', function () {
-        return view('student.dashboard');
-    })->name('student.dashboard');
+    Route::get('/student/dashboard', [StudentDashboardController::class, 'index'])
+    ->name('student.dashboard');
 
     Route::get('/student/deployment/select-school', [StudentDeploymentController::class, 'index'])
         ->name('student.deployment.select');
 
     Route::post('/student/deployment/select-school', [StudentDeploymentController::class, 'store'])
         ->name('student.deployment.store');
+// Fieldstudy
+     Route::get('/student/field-study', [FieldStudyController::class, 'index'])
+        ->name('student.field-study');
+// Fieldsutdy Requirements
+        Route::get('/student/field-study/requirements', [RequirementController::class, 'index'])
+    ->name('student.field-study.requirements');
+
+Route::post('/student/field-study/requirements', [RequirementController::class, 'store'])
+    ->name('student.field-study.requirements.store');
+
+Route::get('/student/field-study/requirements/{requirement}/file', [RequirementController::class, 'show'])
+    ->name('student.field-study.requirements.file');
 });
+
+
 
 /*
 |--------------------------------------------------------------------------
@@ -418,6 +467,27 @@ Route::middleware('auth')->group(function () {
 
     Route::delete('/profile', [ProfileController::class, 'destroy'])
         ->name('profile.destroy');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Student Dashboard, Profile & School Selection
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth', 'role:student'])->group(function () {
+
+    Route::get('/student/dashboard', [StudentDashboardController::class, 'index'])
+        ->name('student.dashboard');
+
+    Route::get('/student/profile', [StudentProfileController::class, 'index'])
+        ->name('student.profile');
+
+    Route::get('/student/deployment/select-school', [StudentDeploymentController::class, 'index'])
+        ->name('student.deployment.select');
+
+    Route::post('/student/deployment/select-school', [StudentDeploymentController::class, 'store'])
+        ->name('student.deployment.store');
 });
 
 require __DIR__.'/auth.php';

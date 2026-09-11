@@ -446,18 +446,30 @@
                     </table>
                 </div>
 
-                {{-- ── Actions ── --}}
-                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6 space-y-3">
-                    <a href="{{ route('supervisor.evaluations.edit', $evaluation->id) }}"
-                       class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow shadow-indigo-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                        Edit Evaluation
-                    </a>
-                    <a href="{{ route('supervisor.evaluations.index') }}"
-                       class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-500 border border-slate-200 hover:bg-slate-50 transition-colors">
-                        Back to Evaluations
-                    </a>
-                </div>
+              {{-- ── Actions ── --}}
+<div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6 space-y-3">
+    <a href="{{ route('supervisor.evaluations.edit', $evaluation->id) }}"
+       class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow shadow-indigo-200">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Edit Evaluation
+    </a>
+
+    <a href="{{ route('supervisor.evaluations.other-evaluator-results.index', $evaluation->id) }}"
+       class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors border border-blue-100">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Other Evaluator Results
+        @if ($evaluation->otherEvaluatorResults->count() > 0)
+            <span class="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] font-bold">
+                {{ $evaluation->otherEvaluatorResults->count() }}
+            </span>
+        @endif
+    </a>
+
+    <a href="{{ route('supervisor.evaluations.index') }}"
+       class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-500 border border-slate-200 hover:bg-slate-50 transition-colors">
+        Back to Evaluations
+    </a>
+</div>
 
             </div>
         </div>

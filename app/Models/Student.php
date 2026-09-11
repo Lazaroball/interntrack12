@@ -10,28 +10,29 @@ class Student extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
-        'student_number',
-        'email',
-        'mobile_number',
-        'reference_number',
-        'first_name',
-        'middle_name',
-        'last_name',
-        'program',
-        'program_type',
-        'year_level',
-        'block',
-        'field_study_hours',
-        'internship_hours',
-        'is_eligible',
-        'preferred_partner_school_id',
-        'status',
-        'is_imported',
-        'is_late_enrollee',
-        'registration_status',
-        'enrollment_form_path',
-    ];
+    'user_id',
+    'student_number',
+    'email',
+    'mobile_number',
+    'reference_number',
+    'first_name',
+    'middle_name',
+    'last_name',
+    'program',
+    'program_type',
+    'year_level',
+    'block',
+    'field_study_hours',
+    'internship_hours',
+    'is_eligible',
+    'field_study_status', // NEW
+    'preferred_partner_school_id',
+    'status',
+    'is_imported',
+    'is_late_enrollee',
+    'registration_status',
+    'enrollment_form_path',
+];
 
     protected $casts = [
         'year_level'                  => 'integer',
@@ -108,6 +109,20 @@ class Student extends Model
             $this->last_name
         );
     }
+    /**
+ * Human-friendly label for field_study_status.
+ */
+public function getFieldStudyStatusLabelAttribute(): string
+{
+    return match ($this->field_study_status) {
+        'pending_review'         => 'Pending Review',
+        'requirements_incomplete' => 'Requirements Incomplete',
+        'requirements_approved'  => 'Requirements Approved',
+        'accepted'                => 'Accepted for Field Study',
+        'rejected'                => 'Rejected / Needs Correction',
+        default                   => 'Pending Review',
+    };
+}
 
     /**
      * Get the student's current active deployment.
