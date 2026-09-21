@@ -130,7 +130,7 @@
         </div>
     @endif
 
-        {{-- ── Field Study Status Banner ── --}}
+    {{-- ── Field Study Status Banner ── --}}
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
         <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-2">Field Study Eligibility Status</h2>
         @php
@@ -156,14 +156,27 @@
         @endif
     </div>
 
-    {{-- ── Requirements Checklist ── --}}
+    @php
+        // Group definitions by phase. Treat null/empty/legacy phase as 'initial'.
+        $initialDefinitions = $definitions->filter(function ($definition) {
+            return in_array($definition->phase, [null, '', 'initial'], true);
+        })->values();
+
+        $ongoingDefinitions = $definitions->filter(function ($definition) {
+            return $definition->phase === 'ongoing';
+        })->values();
+
+        $isAccepted = $student->field_study_status === 'accepted';
+    @endphp
+
+    {{-- ── Initial Requirements ── --}}
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 overflow-hidden">
         <div class="px-6 py-4 bg-slate-50 border-b border-slate-100">
-            <h2 class="text-sm font-bold text-slate-800">Field Study Requirements</h2>
+            <h2 class="text-sm font-bold text-slate-800">Initial Requirements</h2>
         </div>
 
         <div class="divide-y divide-slate-50">
-            @forelse ($definitions as $definition)
+            @forelse ($initialDefinitions as $definition)
                 @php $submission = $submissions->get($definition->id); @endphp
                 <div class="p-6">
                     <div class="flex items-start justify-between gap-4 flex-wrap">
@@ -232,7 +245,95 @@
                     </div>
                 </div>
             @empty
-                <p class="p-6 text-sm text-slate-400 italic">No Field Study requirements have been configured yet.</p>
+                <p class="p-6 text-sm text-slate-400 italic">No initial requirements are currently available.</p>
             @endforelse
         </div>
     </div>
+
+    {{-- ── Ongoing Requirements (only after acceptance) ── --}}
+    @if ($isAccepted)
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 overflow-hidden">
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-100">
+                <h2 class="text-sm font-bold text-slate-800">Ongoing Requirements</h2>
+            </div>
+
+            <div class="divide-y divide-slate-50">
+                @forelse ($ongoingDefinitions as $definition)
+                    @php $submission = $submissions->get($definition->id); @endphp
+                    <div class="p-6">
+                        <div class="flex items-start justify-between gap-4 flex-wrap">
+                            <div>
+                                <p class="text-sm font-bold text-slate-800">{{ $definition->name }}</p>
+                                <p class="text-xs font-semibold {{ $definition->is_required ? 'text-red-500' : 'text-slate-400' }} mt-0.5">
+                                    {{ $definition->is_required ? 'Required' : 'Optional' }}
+                                </p>
+                                @if ($definition->description)
+                                    <p class="text-xs text-slate-400 mt-1">{{ $definition->description }}</p>
+                                @endif
+                            </div>
+
+                            <div class="text-right">
+                                @if ($submission)
+                                    @php
+                                        $subStyles = [
+                                            'pending'  => 'bg-slate-100 text-slate-600 ring-slate-200',
+                                            'approved' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+                                            'rejected' => 'bg-red-50 text-red-600 ring-red-200',
+                                        ];
+                                    @endphp
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ring-1 capitalize {{ $subStyles[$submission->status] ?? $subStyles['pending'] }}">
+                                        {{ $submission->status === 'pending' ? 'Pending Review' : $submission->status }}
+                                    </span>
+                                    <p class="text-xs text-slate-400 mt-1.5">
+                                        Submitted {{ $submission->submitted_at?->format('M d, Y') }}
+                                    </p>
+                                @else
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-50 text-slate-400 ring-1 ring-slate-200">
+                                        Not Submitted
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+
+                        @if ($submission?->status === 'rejected' && $submission?->remarks)
+                            <div class="mt-3 px-4 py-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600">
+                                <span class="font-bold">Coordinator remarks:</span> {{ $submission->remarks }}
+                            </div>
+                        @endif
+
+                        <div class="mt-4 flex items-center gap-3 flex-wrap">
+                            @if ($submission?->file_path)
+                                <a href="{{ route('student.field-study.requirements.file', $submission) }}"
+                                   target="_blank"
+                                   class="text-blue-600 hover:text-blue-700 font-semibold text-xs">
+                                    View Submitted File
+                                </a>
+                            @endif
+
+                            @if (!$submission || $submission->status === 'rejected')
+                                <form method="POST" action="{{ route('student.field-study.requirements.store') }}" enctype="multipart/form-data" class="flex items-center gap-2">
+                                    @csrf
+                                    <input type="hidden" name="requirement_definition_id" value="{{ $definition->id }}">
+                                    <input type="file" name="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required
+                                           class="text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0
+                                                  file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100
+                                                  border border-slate-200 rounded-lg">
+                                    <button type="submit"
+                                            class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors duration-150">
+                                        {{ $submission ? 'Resubmit' : 'Submit' }}
+                                    </button>
+                                </form>
+                            @endif
+                        </div>
+                    </div>
+                @empty
+                    <p class="p-6 text-sm text-slate-400 italic">No ongoing requirements are currently available.</p>
+                @endforelse
+            </div>
+        </div>
+    @endif
+
+</main>
+
+</body>
+</html>

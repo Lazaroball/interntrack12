@@ -30,24 +30,53 @@
                 </div>
             </div>
 
-            <nav class="hidden md:flex items-center gap-1" aria-label="Supervisor navigation">
+                        <nav class="hidden md:flex items-center gap-1" aria-label="Supervisor navigation">
                 <a href="{{ route('supervisor.dashboard') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white bg-blue-600">
+                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150
+                   {{ request()->routeIs('supervisor.dashboard')
+                        ? 'bg-blue-600 text-white font-semibold'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
                     Dashboard
                 </a>
                 <a href="{{ route('supervisor.students.index') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">
+                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150
+                   {{ request()->routeIs('supervisor.students.*')
+                        ? 'bg-blue-600 text-white font-semibold'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
                     Students
                 </a>
                 @if (Route::has('supervisor.observations.index'))
-                    <a href="{{ route('supervisor.observations.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Observation</a>
+                    <a href="{{ route('supervisor.observations.index') }}"
+                       class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150
+                       {{ request()->routeIs('supervisor.observations.*')
+                            ? 'bg-blue-600 text-white font-semibold'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
+                        Observation
+                    </a>
                 @else
                     <span class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 cursor-not-allowed">Observation</span>
                 @endif
                 @if (Route::has('supervisor.evaluations.index'))
-                    <a href="{{ route('supervisor.evaluations.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Evaluation</a>
+                    <a href="{{ route('supervisor.evaluations.index') }}"
+                       class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150
+                       {{ request()->routeIs('supervisor.evaluations.*')
+                            ? 'bg-blue-600 text-white font-semibold'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
+                        Evaluation
+                    </a>
                 @else
                     <span class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 cursor-not-allowed">Evaluation</span>
+                @endif
+                @if (Route::has('supervisor.field-study-requests.index'))
+                    <a href="{{ route('supervisor.field-study-requests.index') }}"
+                       class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150
+                       {{ request()->routeIs('supervisor.field-study-requests.*')
+                            ? 'bg-blue-600 text-white font-semibold'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
+                        Field Study Requests
+                    </a>
+                @else
+                    <span class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 cursor-not-allowed">Field Study Requests</span>
                 @endif
             </nav>
 

@@ -16,7 +16,6 @@
 <header class="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm shadow-blue-50">
     <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
-
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow shadow-blue-200 flex-shrink-0">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-5 h-5">
@@ -30,24 +29,53 @@
                 </div>
             </div>
 
-            <nav class="hidden md:flex items-center gap-1" aria-label="Supervisor navigation">
+                       <nav class="hidden md:flex items-center gap-1" aria-label="Supervisor navigation">
                 <a href="{{ route('supervisor.dashboard') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">
+                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150
+                   {{ request()->routeIs('supervisor.dashboard')
+                        ? 'bg-blue-600 text-white font-semibold'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
                     Dashboard
                 </a>
                 <a href="{{ route('supervisor.students.index') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white bg-blue-600">
+                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150
+                   {{ request()->routeIs('supervisor.students.*')
+                        ? 'bg-blue-600 text-white font-semibold'
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
                     Students
                 </a>
                 @if (Route::has('supervisor.observations.index'))
-                    <a href="{{ route('supervisor.observations.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Observation</a>
+                    <a href="{{ route('supervisor.observations.index') }}"
+                       class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150
+                       {{ request()->routeIs('supervisor.observations.*')
+                            ? 'bg-blue-600 text-white font-semibold'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
+                        Observation
+                    </a>
                 @else
                     <span class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 cursor-not-allowed">Observation</span>
                 @endif
                 @if (Route::has('supervisor.evaluations.index'))
-                    <a href="{{ route('supervisor.evaluations.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Evaluation</a>
+                    <a href="{{ route('supervisor.evaluations.index') }}"
+                       class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150
+                       {{ request()->routeIs('supervisor.evaluations.*')
+                            ? 'bg-blue-600 text-white font-semibold'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
+                        Evaluation
+                    </a>
                 @else
                     <span class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 cursor-not-allowed">Evaluation</span>
+                @endif
+                @if (Route::has('supervisor.field-study-requests.index'))
+                    <a href="{{ route('supervisor.field-study-requests.index') }}"
+                       class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150
+                       {{ request()->routeIs('supervisor.field-study-requests.*')
+                            ? 'bg-blue-600 text-white font-semibold'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
+                        Field Study Requests
+                    </a>
+                @else
+                    <span class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 cursor-not-allowed">Field Study Requests</span>
                 @endif
             </nav>
 
@@ -88,6 +116,7 @@
             </div>
         </div>
     </div>
+
 </header>
 
 <main class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">

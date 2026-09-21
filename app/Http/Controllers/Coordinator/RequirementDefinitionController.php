@@ -11,12 +11,16 @@ class RequirementDefinitionController extends Controller
     public function index()
     {
         $definitions = RequirementDefinition::orderBy('stage')
+            ->orderBy('phase')
             ->orderBy('semester')
             ->orderByDesc('is_required')
             ->orderBy('name')
             ->get();
 
-        return view('coordinator.requirements.definitions.index', compact('definitions'));
+        return view(
+            'coordinator.requirements.definitions.index',
+            compact('definitions')
+        );
     }
 
     public function create()
@@ -30,6 +34,7 @@ class RequirementDefinitionController extends Controller
             'name'        => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'stage'       => ['required', 'in:Field Study,Internship'],
+            'phase'       => ['required', 'in:initial,ongoing'],
             'semester'    => ['required', 'string', 'in:1st Semester,2nd Semester,Summer'],
             'is_required' => ['required', 'boolean'],
             'is_active'   => ['required', 'boolean'],
@@ -47,7 +52,10 @@ class RequirementDefinitionController extends Controller
 
     public function edit(RequirementDefinition $definition)
     {
-        return view('coordinator.requirements.definitions.edit', compact('definition'));
+        return view(
+            'coordinator.requirements.definitions.edit',
+            compact('definition')
+        );
     }
 
     public function update(Request $request, RequirementDefinition $definition)
@@ -56,6 +64,7 @@ class RequirementDefinitionController extends Controller
             'name'        => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'stage'       => ['required', 'in:Field Study,Internship'],
+            'phase'       => ['required', 'in:initial,ongoing'],
             'semester'    => ['required', 'string', 'in:1st Semester,2nd Semester,Summer'],
             'is_required' => ['required', 'boolean'],
             'is_active'   => ['required', 'boolean'],
@@ -70,7 +79,9 @@ class RequirementDefinitionController extends Controller
 
     public function toggleActive(RequirementDefinition $definition)
     {
-        $definition->update(['is_active' => !$definition->is_active]);
+        $definition->update([
+            'is_active' => !$definition->is_active,
+        ]);
 
         return redirect()
             ->route('coordinator.requirements.definitions.index')

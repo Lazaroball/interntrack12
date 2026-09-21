@@ -63,6 +63,27 @@
                 </div>
             </div>
 
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-1.5">Phase</label>
+                <select name="phase" required
+                        class="w-full px-3.5 py-2 rounded-xl border-2 border-slate-200 text-sm focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none @error('phase') border-red-300 @enderror">
+                    <option value="">Select Phase</option>
+                    <option value="initial" {{ old('phase', $definition->phase) === 'initial' ? 'selected' : '' }}>
+                        Initial
+                    </option>
+                    <option value="ongoing" {{ old('phase', $definition->phase) === 'ongoing' ? 'selected' : '' }}>
+                        Ongoing
+                    </option>
+                </select>
+                <p class="text-xs text-slate-400 mt-1.5">
+                    <span class="font-semibold text-slate-500">Initial</span> — required before Field Study acceptance.
+                    <span class="font-semibold text-slate-500">Ongoing</span> — submitted during Field Study.
+                </p>
+                @error('phase')
+                    <p class="text-xs text-red-600 font-semibold mt-1.5">{{ $message }}</p>
+                @enderror
+            </div>
+
             <div class="flex items-center gap-6">
                 <label class="flex items-center gap-2 text-sm font-semibold text-slate-700">
                     <input type="hidden" name="is_required" value="0">

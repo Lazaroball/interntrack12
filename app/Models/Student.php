@@ -25,23 +25,25 @@ class Student extends Model
     'field_study_hours',
     'internship_hours',
     'is_eligible',
-    'field_study_status', // NEW
+    'field_study_status',
     'preferred_partner_school_id',
     'status',
     'is_imported',
     'is_late_enrollee',
     'registration_status',
     'enrollment_form_path',
+    'field_study_completed_at',
 ];
 
-    protected $casts = [
-        'year_level'                  => 'integer',
-        'field_study_hours'           => 'integer',
-        'internship_hours'            => 'integer',
-        'is_eligible'                 => 'boolean',
-        'is_imported'                 => 'boolean',
-        'is_late_enrollee'            => 'boolean',
-    ];
+protected $casts = [
+    'year_level' => 'integer',
+    'field_study_hours' => 'integer',
+    'internship_hours' => 'integer',
+    'is_eligible' => 'boolean',
+    'is_imported' => 'boolean',
+    'is_late_enrollee' => 'boolean',
+    'field_study_completed_at' => 'datetime',
+];
 
     /*
     |--------------------------------------------------------------------------

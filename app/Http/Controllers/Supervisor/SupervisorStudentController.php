@@ -57,8 +57,8 @@ class SupervisorStudentController extends Controller
         // TODO: these targets are placeholders. Replace with whatever
         // source of truth the coordinator side uses (config value,
         // settings table, etc.) so both dashboards show the same numbers.
-        $fieldStudyTarget = 240;
-        $internshipTarget = 500;
+        $fieldStudyTarget = 600;
+        $internshipTarget = 600;
 
         $fieldStudyPercent = $fieldStudyTarget > 0
             ? min(100, round((($student->field_study_hours ?? 0) / $fieldStudyTarget) * 100))

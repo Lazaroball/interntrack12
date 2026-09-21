@@ -19,6 +19,7 @@ use App\Http\Controllers\Coordinator\StudentImportController;
 use App\Http\Controllers\StudentDeploymentController;
 use App\Http\Controllers\Coordinator\RequirementDefinitionController;
 use App\Http\Controllers\Coordinator\RequirementReviewController;
+use App\Http\Controllers\Coordinator\CoordinatorFieldStudyRequestController;
 /*
 |--------------------------------------------------------------------------
 | Supervisor
@@ -30,6 +31,7 @@ use App\Http\Controllers\Supervisor\SupervisorStudentController;
 use App\Http\Controllers\Supervisor\ObservationScheduleController;
 use App\Http\Controllers\Supervisor\SupervisorEvaluationController;
 use App\Http\Controllers\Supervisor\OtherEvaluatorResultController;
+use App\Http\Controllers\Supervisor\FieldStudyRequestController;
 /*
 |--------------------------------------------------------------------------
 | Student
@@ -39,6 +41,7 @@ use App\Http\Controllers\Student\StudentDashboardController;
 use App\Http\Controllers\Student\StudentProfileController;
 use App\Http\Controllers\Student\FieldStudyController;
 use App\Http\Controllers\Student\RequirementController;
+use App\Http\Controllers\Student\StudentFieldStudyRequestController;
 /*
 |--------------------------------------------------------------------------
 | Home
@@ -238,6 +241,20 @@ Route::prefix('requirements/review')
     
 
     });
+            // Field Study Completion Requests (Coordinator)
+        Route::prefix('field-study-requests')
+            ->name('field-study-requests.')
+            ->group(function () {
+
+                Route::get('/', [CoordinatorFieldStudyRequestController::class, 'index'])
+                    ->name('index');
+
+                Route::patch('/{fieldStudyRequest}/approve', [CoordinatorFieldStudyRequestController::class, 'approve'])
+                    ->name('approve');
+
+                Route::patch('/{fieldStudyRequest}/reject', [CoordinatorFieldStudyRequestController::class, 'reject'])
+                    ->name('reject');
+            });
      });
 
 /*
@@ -394,7 +411,29 @@ Route::prefix('supervisor')
                     [OtherEvaluatorResultController::class, 'destroy']
                 )->name('destroy');
             });
-    }); // <-- this closing bracket was missing
+
+
+                // Field Study Completion Requests
+        Route::prefix('field-study-requests')
+            ->name('field-study-requests.')
+            ->group(function () {
+
+                Route::get(
+                    '/',
+                    [FieldStudyRequestController::class, 'index']
+                )->name('index');
+
+                Route::patch(
+                    '/{fieldStudyRequest}/approve',
+                    [FieldStudyRequestController::class, 'approve']
+                )->name('approve');
+
+                Route::patch(
+                    '/{fieldStudyRequest}/reject',
+                    [FieldStudyRequestController::class, 'reject']
+                )->name('reject');
+            });
+    });
 
 /*
 |--------------------------------------------------------------------------
@@ -405,25 +444,33 @@ Route::prefix('supervisor')
 Route::middleware(['auth', 'role:student'])->group(function () {
 
     Route::get('/student/dashboard', [StudentDashboardController::class, 'index'])
-    ->name('student.dashboard');
+        ->name('student.dashboard');
 
     Route::get('/student/deployment/select-school', [StudentDeploymentController::class, 'index'])
         ->name('student.deployment.select');
 
     Route::post('/student/deployment/select-school', [StudentDeploymentController::class, 'store'])
         ->name('student.deployment.store');
-// Fieldstudy
-     Route::get('/student/field-study', [FieldStudyController::class, 'index'])
+
+    // Field Study
+    Route::get('/student/field-study', [FieldStudyController::class, 'index'])
         ->name('student.field-study');
-// Fieldsutdy Requirements
-        Route::get('/student/field-study/requirements', [RequirementController::class, 'index'])
-    ->name('student.field-study.requirements');
 
-Route::post('/student/field-study/requirements', [RequirementController::class, 'store'])
-    ->name('student.field-study.requirements.store');
+    // Field Study Requirements
+    Route::get('/student/field-study/requirements', [RequirementController::class, 'index'])
+        ->name('student.field-study.requirements');
 
-Route::get('/student/field-study/requirements/{requirement}/file', [RequirementController::class, 'show'])
-    ->name('student.field-study.requirements.file');
+    Route::post('/student/field-study/requirements', [RequirementController::class, 'store'])
+        ->name('student.field-study.requirements.store');
+
+    Route::get('/student/field-study/requirements/{requirement}/file', [RequirementController::class, 'show'])
+        ->name('student.field-study.requirements.file');
+
+    // Field Study Completion Request
+    Route::post(
+    '/student/field-study/request-completion',
+    [StudentFieldStudyRequestController::class, 'store']
+)->name('student.field-study.completion-request.store');
 });
 
 

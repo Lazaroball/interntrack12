@@ -78,6 +78,7 @@
                     <tr class="bg-slate-50 border-b border-slate-100">
                         <th class="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Name</th>
                         <th class="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Stage</th>
+                        <th class="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Phase</th>
                         <th class="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Semester</th>
                         <th class="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Required</th>
                         <th class="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Active</th>
@@ -89,6 +90,15 @@
                         <tr>
                             <td class="px-4 py-3 font-semibold text-slate-800">{{ $definition->name }}</td>
                             <td class="px-4 py-3 text-slate-600">{{ $definition->stage }}</td>
+                            <td class="px-4 py-3">
+                                @if ($definition->phase === 'initial')
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 ring-1 ring-blue-200">Initial</span>
+                                @elseif ($definition->phase === 'ongoing')
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 ring-1 ring-purple-200">Ongoing</span>
+                                @else
+                                    <span class="text-slate-400">—</span>
+                                @endif
+                            </td>
                             <td class="px-4 py-3 text-slate-600">{{ $definition->semester }}</td>
                             <td class="px-4 py-3">
                                 @if ($definition->is_required)
@@ -122,7 +132,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-8 text-center text-sm text-slate-400 italic">No requirement definitions yet.</td>
+                            <td colspan="7" class="px-4 py-8 text-center text-sm text-slate-400 italic">No requirement definitions yet.</td>
                         </tr>
                     @endforelse
                 </tbody>

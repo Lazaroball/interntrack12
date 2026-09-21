@@ -14,6 +14,11 @@ class RequirementController extends Controller
 {
     /**
      * Display the authenticated student's Field Study requirement checklist.
+     *
+     * Initial-phase definitions are always shown. Ongoing-phase definitions
+     * are only shown once the student has been accepted for Field Study —
+     * otherwise a student who isn't accepted yet would see requirements
+     * (e.g. Weekly Accomplishment Report) they have no business submitting.
      */
     public function index()
     {
@@ -23,6 +28,15 @@ class RequirementController extends Controller
 
         $definitions = RequirementDefinition::active()
             ->forStage('Field Study')
+            ->when($student->field_study_status !== 'accepted', function ($query) {
+                // Not yet accepted: only initial-phase requirements are
+                // visible. A null/legacy phase (pre-dates the phase
+                // column) is treated as 'initial' so existing definitions
+                // don't silently disappear from the checklist.
+                $query->where(function ($q) {
+                    $q->where('phase', 'initial')->orWhereNull('phase');
+                });
+            })
             ->orderByDesc('is_required')
             ->orderBy('name')
             ->get();
@@ -41,6 +55,11 @@ class RequirementController extends Controller
 
     /**
      * Store a submission against a specific requirement definition.
+     *
+     * Server-side enforcement mirrors index(): the definition must be an
+     * active Field Study definition, and if it's phase=ongoing the student
+     * must already be accepted. This is checked independently of what the
+     * UI shows, since a definition ID could otherwise be submitted directly.
      */
     public function store(Request $request)
     {
@@ -53,7 +72,25 @@ class RequirementController extends Controller
             'file'                       => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
         ]);
 
-        $definition = RequirementDefinition::findOrFail($validated['requirement_definition_id']);
+        $definition = RequirementDefinition::active()
+            ->forStage('Field Study')
+            ->find($validated['requirement_definition_id']);
+
+        abort_if(
+            $definition === null,
+            403,
+            'You are not currently allowed to submit this requirement.'
+        );
+
+        $phase = $definition->phase ?? 'initial';
+
+        if ($phase === 'ongoing') {
+            abort_unless(
+                $student->field_study_status === 'accepted',
+                403,
+                'You are not currently allowed to submit this requirement.'
+            );
+        }
 
         $storedPath = $request->file('file')->store(
             "requirements/{$student->id}",

@@ -10,14 +10,15 @@ class RequirementDefinition extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name',
-        'description',
-        'stage',
-        'semester',
-        'is_required',
-        'is_active',
-        'created_by',
-    ];
+    'name',
+    'description',
+    'stage',
+    'phase',
+    'semester',
+    'is_required',
+    'is_active',
+    'created_by',
+];
 
     protected $casts = [
         'is_required' => 'boolean',

@@ -18,8 +18,10 @@ class FieldStudyRequest extends Model
     ];
 
     protected $casts = [
-        // requested_hours, supervisor_approval, coordinator_approval casts pending schema confirmation
-    ];
+    'requested_hours' => 'integer',
+    'supervisor_approval' => 'boolean',
+    'coordinator_approval' => 'boolean',
+];
 
     public function student()
     {
