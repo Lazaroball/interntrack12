@@ -260,26 +260,25 @@ Route::prefix('requirements/review')
 
 /*
 |--------------------------------------------------------------------------
-| Supervisor Dashboard
+| Supervisor Dashboard & Students
 |--------------------------------------------------------------------------
 */
 
-Route::get('/supervisor/dashboard', [SupervisorDashboardController::class, 'index'])
-    ->name('supervisor.dashboard');
-    /*
-|--------------------------------------------------------------------------
-| Supervisor Students
-|--------------------------------------------------------------------------
-*/
+Route::middleware(['auth', 'role:supervisor'])
+    ->prefix('supervisor')
+    ->name('supervisor.')
+    ->group(function () {
 
-Route::get('/supervisor/students', [SupervisorStudentController::class, 'index'])
-    ->name('supervisor.students.index');
+        Route::get('/dashboard', [SupervisorDashboardController::class, 'index'])
+            ->name('dashboard');
 
-    Route::get('/supervisor/students', [SupervisorStudentController::class, 'index'])
-    ->name('supervisor.students.index');
+        Route::get('/students', [SupervisorStudentController::class, 'index'])
+            ->name('students.index');
 
-Route::get('/supervisor/students/{student}', [SupervisorStudentController::class, 'show'])
-    ->name('supervisor.students.show');
+        Route::get('/students/{student}', [SupervisorStudentController::class, 'show'])
+            ->name('students.show');
+
+    });
 
 /*
 |--------------------------------------------------------------------------
