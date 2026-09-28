@@ -193,16 +193,32 @@
     {{-- ── Eligibility & Preferred School Cards ── --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {{-- Eligibility --}}
+                    {{-- Eligibility --}}
         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
             <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">Deployment Eligibility</h2>
 
-            @if ($isEligible)
+            @if ($isDeployed && $currentDeployment)
+                <div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-emerald-600 flex-shrink-0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    <div>
+                        <p class="text-sm font-bold text-emerald-700">Deployed</p>
+                        <p class="text-xs text-emerald-600">You have been deployed for Field Study. See details below.</p>
+                    </div>
+                </div>
+            @elseif ($isDeploymentPending)
+                <div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 border border-blue-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-blue-600 flex-shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <div>
+                        <p class="text-sm font-bold text-blue-700">Pending</p>
+                        <p class="text-xs text-blue-600">Your partner school preference has been submitted and is awaiting coordinator processing.</p>
+                    </div>
+                </div>
+            @elseif ($isEligible)
                 <div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-emerald-600 flex-shrink-0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                     <div>
                         <p class="text-sm font-bold text-emerald-700">Eligible</p>
-                        <p class="text-xs text-emerald-600">You meet the requirements for deployment.</p>
+                        <p class="text-xs text-emerald-600">You've been accepted for Field Study. You may now select a partner school.</p>
                     </div>
                 </div>
             @else

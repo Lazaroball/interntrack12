@@ -42,6 +42,7 @@ use App\Http\Controllers\Student\StudentProfileController;
 use App\Http\Controllers\Student\FieldStudyController;
 use App\Http\Controllers\Student\RequirementController;
 use App\Http\Controllers\Student\StudentFieldStudyRequestController;
+use App\Http\Controllers\Student\DailyLogController;
 /*
 |--------------------------------------------------------------------------
 | Home
@@ -471,6 +472,20 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     '/student/field-study/request-completion',
     [StudentFieldStudyRequestController::class, 'store']
 )->name('student.field-study.completion-request.store');
+
+// Add this import at the top of web.php with your other controller imports:
+
+
+// DailyLogController
+
+    Route::get('/student/teaching-hours', [DailyLogController::class, 'index'])
+        ->name('student.teaching-hours');
+
+    Route::post('/student/teaching-hours/time-in', [DailyLogController::class, 'timeIn'])
+        ->name('student.teaching-hours.time-in');
+
+    Route::post('/student/teaching-hours/time-out', [DailyLogController::class, 'timeOut'])
+        ->name('student.teaching-hours.time-out');
 });
 
 

@@ -221,7 +221,7 @@ public function acceptFieldStudy(Student $student)
      * Reject a student's overall Field Study eligibility.
      */
     public function rejectFieldStudy(Request $request, Student $student)
-    {
+    { 
         $validated = $request->validate([
             'remarks' => ['nullable', 'string', 'max:1000'],
         ]);

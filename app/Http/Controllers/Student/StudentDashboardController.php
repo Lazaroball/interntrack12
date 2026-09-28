@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
+use App\Models\Deployment;
 use App\Models\Student;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -60,6 +61,41 @@ class StudentDashboardController extends Controller
 
         $preferredPartnerSchool = $student->preferredPartnerSchool;
 
+        /*
+        |--------------------------------------------------------------------------
+        | Field Study Eligibility
+        |--------------------------------------------------------------------------
+        |
+        | Eligibility for Field Study deployment now follows the coordinator
+        | acceptance workflow (field_study_status = 'accepted') rather than the
+        | legacy students.is_eligible flag, which nothing in this workflow
+        | updates anymore. is_eligible is left untouched in the database and
+        | column in case other parts of the project still depend on it.
+        */
+        $isFieldStudyEligible = $student->field_study_status === 'accepted';
+
+        /*
+        |--------------------------------------------------------------------------
+        | Pending Deployment Request
+        |--------------------------------------------------------------------------
+        |
+        | A deployment request exists once the student submits a partner school
+        | preference (see StudentDeploymentController::store()). It remains
+        | "pending" until the coordinator processes it by assigning a
+        | supervisor — the same rule the Select School page already uses to
+        | decide whether the request is locked/read-only. This does not
+        | replace or alter the existing currentDeployment relationship; it is
+        | a separate, minimal check so the dashboard can distinguish "no
+        | request yet" from "request submitted, awaiting processing" from
+        | "already deployed".
+        */
+        $latestDeploymentRequest = Deployment::where('student_id', $student->id)
+            ->latest()
+            ->first();
+
+        $isDeploymentPending = $latestDeploymentRequest
+            && is_null($latestDeploymentRequest->supervisor_id);
+
         return view('student.dashboard', [
             'student' => $student,
 
@@ -75,7 +111,9 @@ class StudentDashboardController extends Controller
                 'progress_percent' => null, // cannot be calculated without a requirement
             ],
 
-            'isEligible' => (bool) $student->is_eligible,
+            'isEligible' => $isFieldStudyEligible,
+
+            'isDeploymentPending' => $isDeploymentPending,
 
             'isDeployed' => $student->is_deployed,
 

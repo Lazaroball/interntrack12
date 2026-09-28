@@ -26,6 +26,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int|null $radius_meters
  * @property bool $accepting_interns
  * @property string|null $remarks
+ * @property-read int $occupied_slots
+ * @property-read int $remaining_slots
+ * @property-read string $moa_status_display
+ * @property-read string $acceptance_status
  */
 class PartnerSchool extends Model
 {
@@ -62,6 +66,17 @@ class PartnerSchool extends Model
         'moa_expires_at'    => 'date',
     ];
 
+    /**
+     * Computed attributes that must be present in array/JSON output
+     * (required by the Blade's Alpine.js data via @json($partnerSchools)).
+     */
+    protected $appends = [
+        'occupied_slots',
+        'remaining_slots',
+        'moa_status_display',
+        'acceptance_status',
+    ];
+
     /*
     |--------------------------------------------------------------------------
     | Relationships
@@ -86,15 +101,17 @@ class PartnerSchool extends Model
         }
 
         return $this->deployments()
-            ->whereIn('status', ['pending', 'deployed'])
+            ->where('status', 'deployed')
             ->count();
     }
 
+    /**
+     * Remaining slots are always derived from available_slots,
+     * never from max_slots (legacy/unused field).
+     */
     public function getRemainingSlotsAttribute(): int
     {
-        $limit = $this->max_slots ?? $this->available_slots ?? 0;
-
-        $remaining = $limit - $this->occupied_slots;
+        $remaining = ($this->available_slots ?? 0) - $this->occupied_slots;
 
         return max(0, $remaining);
     }
@@ -102,6 +119,26 @@ class PartnerSchool extends Model
     public function isFull(): bool
     {
         return $this->remaining_slots <= 0;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Acceptance Status (UI state)
+    |--------------------------------------------------------------------------
+    |
+    | full        -> zero remaining slots (always takes priority)
+    | accepting   -> remaining slots > 0 and coordinator has not disabled intake
+    | closed      -> remaining slots > 0 but coordinator manually disabled intake
+    |
+    */
+
+    public function getAcceptanceStatusAttribute(): string
+    {
+        if ($this->isFull()) {
+            return 'full';
+        }
+
+        return $this->accepting_interns ? 'accepting' : 'closed';
     }
 
     /*
@@ -149,6 +186,30 @@ class PartnerSchool extends Model
         }
 
         return $this->moa_expires_at->isFuture();
+    }
+
+    /**
+     * Human/UI-facing MOA status, derived from the stored moa_status
+     * plus the actual dates. The raw moa_status column only ever
+     * stores 'active' or 'inactive' — this accessor turns that into
+     * the three states the UI needs to show:
+     *
+     * active           -> MOA on file, currently valid
+     * expired          -> MOA on file, but expiry date has passed
+     *                     (or no expiry date recorded, per isMoaExpired())
+     * renewal_needed   -> no active MOA on file at all
+     */
+    public function getMoaStatusDisplayAttribute(): string
+    {
+        if ($this->moa_status !== 'active' || !$this->moa_started_at) {
+            return 'renewal_needed';
+        }
+
+        if ($this->isMoaExpired()) {
+            return 'expired';
+        }
+
+        return 'active';
     }
 
     /**

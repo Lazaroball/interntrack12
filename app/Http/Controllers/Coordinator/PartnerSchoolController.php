@@ -15,11 +15,11 @@ class PartnerSchoolController extends Controller
      */
     public function index(Request $request)
     {
-        // Include both pending and deployed statuses
-        // to reserve slots for student applications.
+        // Only deployed students occupy a slot. Pending applications
+        // no longer reserve a slot ahead of confirmed deployment.
         $query = PartnerSchool::withCount([
             'deployments as occupied_slots' => function ($q) {
-                $q->whereIn('status', ['pending', 'deployed']);
+                $q->where('status', 'deployed');
             }
         ]);
 
@@ -41,16 +41,39 @@ class PartnerSchoolController extends Controller
 
         $totalPartnerSchools = $partnerSchools->count();
 
+    $acceptingSchoolsCount = $partnerSchools
+    ->filter(function ($school) {
+        return $school->canAcceptNewInterns();
+    })
+    ->count();
+
+        $expiredMoaCount = $partnerSchools
+            ->filter(function ($school) {
+                return $school->moa_status_display === 'expired';
+            })
+            ->count();
+
         $fullSlotsCount = $partnerSchools
             ->filter(function ($school) {
                 return $school->isFull();
             })
             ->count();
 
+        // Dynamically derive institutional type options from existing data.
+        $schoolTypes = PartnerSchool::query()
+            ->whereNotNull('school_type')
+            ->where('school_type', '!=', '')
+            ->distinct()
+            ->orderBy('school_type')
+            ->pluck('school_type');
+
         return view('coordinator.partner-schools.index', compact(
             'partnerSchools',
             'totalPartnerSchools',
-            'fullSlotsCount'
+            'acceptingSchoolsCount',
+            'expiredMoaCount',
+            'fullSlotsCount',
+            'schoolTypes'
         ));
     }
 
@@ -66,6 +89,7 @@ class PartnerSchoolController extends Controller
      * Store partner school.
      */
     public function store(Request $request)
+
     {
         $validated = $request->validate([
             'school_name' => [
@@ -122,6 +146,10 @@ class PartnerSchoolController extends Controller
                 'nullable',
                 'string',
                 'max:1000',
+                
+            ],
+            'accepting_interns' => [
+                'required', 'boolean'
             ],
 
             /*
@@ -192,8 +220,7 @@ class PartnerSchoolController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $validated['contact_person'] = $validated['contact_person'] ?? '';
-        $validated['contact_number'] = $validated['contact_number'] ?? '';
+       
 
         /*
         |--------------------------------------------------------------------------
@@ -335,7 +362,9 @@ class PartnerSchoolController extends Controller
                 'string',
                 'max:1000',
             ],
-
+                'accepting_interns' => [
+                    'required', 'boolean'
+            ], 
             /*
             |--------------------------------------------------------------------------
             | Geolocation
@@ -404,9 +433,7 @@ class PartnerSchoolController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $validated['contact_person'] = $validated['contact_person'] ?? '';
-        $validated['contact_number'] = $validated['contact_number'] ?? '';
-
+     
         /*
         |--------------------------------------------------------------------------
         | MOA Dates
