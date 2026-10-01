@@ -145,12 +145,9 @@ class PartnerSchoolController extends Controller
             'remarks' => [
                 'nullable',
                 'string',
-                'max:1000',
-                
+                'max:1000',  
             ],
-            'accepting_interns' => [
-                'required', 'boolean'
-            ],
+           
 
             /*
             |--------------------------------------------------------------------------
@@ -266,6 +263,8 @@ class PartnerSchoolController extends Controller
         |--------------------------------------------------------------------------
         */
 
+        $validated['accepting_interns'] = true;
+
         $school = PartnerSchool::create($validated);
 
         /*
@@ -362,9 +361,9 @@ class PartnerSchoolController extends Controller
                 'string',
                 'max:1000',
             ],
-                'accepting_interns' => [
-                    'required', 'boolean'
-            ], 
+               'accepting_interns' => [
+    'required', 'boolean'
+],
             /*
             |--------------------------------------------------------------------------
             | Geolocation
