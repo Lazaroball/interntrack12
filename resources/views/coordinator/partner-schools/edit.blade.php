@@ -105,6 +105,50 @@
                     <input type="text" name="other_school_type" id="other_school_type" value="{{ old('other_school_type') }}"
                            class="w-full px-3.5 py-2.5 rounded-xl border-2 @error('other_school_type') border-red-300 @else border-slate-200 @enderror bg-white text-sm text-slate-700 outline-none transition-all focus:ring-2 focus:ring-blue-300 focus:border-blue-400" placeholder="e.g. Non-Government Organization" />
                 </div>
+
+                {{-- Accepting Interns Toggle --}}
+                @php
+                    $acceptingInterns = (bool) old('accepting_interns', $partnerSchool->accepting_interns);
+                @endphp
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                        Intern Intake Status <span class="text-red-500">*</span>
+                    </label>
+
+                    <div class="flex items-center justify-between gap-4 px-3.5 py-3 rounded-xl border-2 @error('accepting_interns') border-red-300 @else border-slate-200 @enderror bg-white">
+                        <div class="min-w-0">
+                            <p id="accepting-label"
+                               class="text-sm font-semibold {{ $acceptingInterns ? 'text-emerald-700' : 'text-slate-600' }}">
+                                {{ $acceptingInterns ? 'Accepting Interns' : 'Not Accepting Interns' }}
+                            </p>
+                            <p class="text-[11px] text-slate-400">
+                                Turn off to temporarily stop new intern deployments to this school.
+                            </p>
+                        </div>
+
+                        <label for="accepting_interns" class="relative inline-flex items-center cursor-pointer shrink-0">
+                            {{-- Sends 0 when the checkbox is unchecked --}}
+                            <input type="hidden" name="accepting_interns" value="0">
+                            <input type="checkbox"
+                                   name="accepting_interns"
+                                   id="accepting_interns"
+                                   value="1"
+                                   class="sr-only peer"
+                                   {{ $acceptingInterns ? 'checked' : '' }}>
+                            <div class="w-11 h-6 bg-slate-200 rounded-full transition-colors
+                                        peer-checked:bg-emerald-500
+                                        peer-focus:ring-2 peer-focus:ring-blue-300
+                                        after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                        after:bg-white after:rounded-full after:h-5 after:w-5
+                                        after:shadow after:transition-transform
+                                        peer-checked:after:translate-x-5"></div>
+                        </label>
+                    </div>
+
+                    @error('accepting_interns')
+                        <p class="text-[11px] text-red-500 mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
             </div>
 
             <hr class="border-slate-100" />
@@ -539,6 +583,24 @@
         }
 
         schoolTypeSelect.addEventListener('change', toggleOtherType);
+
+        // --- 5. Accepting Interns toggle label ---
+        const acceptingToggle = document.getElementById('accepting_interns');
+        const acceptingLabel = document.getElementById('accepting-label');
+
+        if (acceptingToggle && acceptingLabel) {
+            acceptingToggle.addEventListener('change', () => {
+                if (acceptingToggle.checked) {
+                    acceptingLabel.textContent = 'Accepting Interns';
+                    acceptingLabel.classList.remove('text-slate-600');
+                    acceptingLabel.classList.add('text-emerald-700');
+                } else {
+                    acceptingLabel.textContent = 'Not Accepting Interns';
+                    acceptingLabel.classList.remove('text-emerald-700');
+                    acceptingLabel.classList.add('text-slate-600');
+                }
+            });
+        }
     });
 
     // --- File Upload Helpers ---
