@@ -10,6 +10,69 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 
+@php
+    /*
+    |--------------------------------------------------------------------------
+    | Student navigation (single source of truth for desktop + mobile)
+    |--------------------------------------------------------------------------
+    | 'url'    => null means the feature has no route yet (rendered disabled).
+    | 'active' => evaluated against the current request.
+    */
+    $onRequirements = request()->routeIs('student.field-study.requirements*');
+
+    $studentNav = [
+        [
+            'label'  => 'Dashboard',
+            'url'    => route('student.dashboard'),
+            'active' => request()->routeIs('student.dashboard'),
+        ],
+        [
+            'label'  => 'Requirements',
+            'url'    => route('student.field-study.requirements'),
+            'active' => $onRequirements,
+        ],
+        [
+            'label'  => 'Field Study',
+            'url'    => route('student.field-study'),
+            // Requirements lives under the field-study prefix, so exclude it here
+            'active' => request()->routeIs('student.field-study*') && ! $onRequirements,
+        ],
+        [
+            'label'  => 'Select School',
+            'url'    => route('student.deployment.select'),
+            'active' => request()->routeIs('student.deployment.*') || request()->is('student/deployment/*'),
+        ],
+        [
+            'label'  => 'Teaching Hours',
+            'url'    => url('/student/teaching-hours'),
+            'active' => request()->routeIs('student.teaching-hours*') || request()->is('student/teaching-hours*'),
+        ],
+        [
+            'label'  => 'Internship',
+            'url'    => null,
+            'active' => false,
+        ],
+    ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | Quick Actions
+    |--------------------------------------------------------------------------
+    | Requirements is the single entry point for requirements and lesson plans,
+    | so there is no separate Lesson Plans action.
+    | Attendance is the entry point for Teaching Hours (time in / time out),
+    | so there is no separate Teaching Hours action.
+    */
+    $quickActions = [
+        ['label' => 'Requirements',   'url' => route('student.field-study.requirements'), 'icon' => 'M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z'],
+        ['label' => 'Field Study',    'url' => route('student.field-study'), 'icon' => 'M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z'],
+        ['label' => 'Select School',  'url' => route('student.deployment.select'), 'icon' => 'M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0zM12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'],
+        ['label' => 'Attendance',     'url' => url('/student/teaching-hours'), 'icon' => 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9l2 2 4-4'],
+        ['label' => 'Internship',     'url' => null, 'icon' => 'M20 7h-9m9 5H8m12 5H5M4 7h.01M4 12h.01M4 17h.01'],
+        ['label' => 'Evaluations',    'url' => null, 'icon' => 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2'],
+    ];
+@endphp
+
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
 
 {{-- ══ NAV ══ --}}
@@ -30,14 +93,22 @@
                 </div>
             </div>
 
+            {{-- Desktop nav --}}
             <nav class="hidden md:flex items-center gap-1" aria-label="Student navigation">
-                <a href="{{ route('student.dashboard') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white bg-blue-600">
-                    Dashboard
-                </a>
-                <span class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 cursor-not-allowed">Requirements</span>
-                <a href="{{ route('student.field-study') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Field Study</a>
-                <span class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 cursor-not-allowed">Internship</span>
+                @foreach ($studentNav as $item)
+                    @if ($item['url'])
+                        <a href="{{ $item['url'] }}"
+                           @if ($item['active']) aria-current="page" @endif
+                           class="px-3.5 py-1.5 rounded-lg text-sm transition-colors duration-150
+                                  {{ $item['active']
+                                        ? 'font-semibold text-white bg-blue-600'
+                                        : 'font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
+                            {{ $item['label'] }}
+                        </a>
+                    @else
+                        <span class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 cursor-not-allowed">{{ $item['label'] }}</span>
+                    @endif
+                @endforeach
             </nav>
 
             <div class="flex items-center gap-3">
@@ -62,9 +133,9 @@
                          x-transition:leave="transition ease-in duration-75" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
                          class="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-slate-100 shadow-lg shadow-slate-200/60 py-1 z-50">
                         <a href="{{ route('student.profile') }}" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-    My Profile
-</a>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            My Profile
+                        </a>
                         <div class="my-1 border-t border-slate-100"></div>
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
@@ -86,10 +157,20 @@
 
         {{-- Mobile nav panel --}}
         <div x-show="mobileOpen" x-cloak x-transition class="md:hidden pb-4 space-y-1">
-            <a href="{{ route('student.dashboard') }}" class="block px-3.5 py-2 rounded-lg text-sm font-semibold text-white bg-blue-600">Dashboard</a>
-            <span class="block px-3.5 py-2 rounded-lg text-sm font-medium text-slate-300">Requirements</span>
-            <span class="block px-3.5 py-2 rounded-lg text-sm font-medium text-slate-300">Field Study</span>
-            <span class="block px-3.5 py-2 rounded-lg text-sm font-medium text-slate-300">Internship</span>
+            @foreach ($studentNav as $item)
+                @if ($item['url'])
+                    <a href="{{ $item['url'] }}"
+                       @if ($item['active']) aria-current="page" @endif
+                       class="block px-3.5 py-2 rounded-lg text-sm
+                              {{ $item['active']
+                                    ? 'font-semibold text-white bg-blue-600'
+                                    : 'font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
+                        {{ $item['label'] }}
+                    </a>
+                @else
+                    <span class="block px-3.5 py-2 rounded-lg text-sm font-medium text-slate-300">{{ $item['label'] }}</span>
+                @endif
+            @endforeach
         </div>
     </div>
 </header>
@@ -125,6 +206,41 @@
                     @endif
                 </span>
             </div>
+        </div>
+    </div>
+
+    {{-- ── Quick Actions ── --}}
+    <div>
+        <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">Quick Actions</h2>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            @foreach ($quickActions as $action)
+                @if ($action['url'])
+                    <a href="{{ $action['url'] }}"
+                       class="group bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-4 flex flex-col items-center justify-center gap-2.5 text-center
+                              hover:border-blue-200 hover:bg-blue-50/40 transition-colors duration-150
+                              focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1">
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 group-hover:bg-blue-100 flex items-center justify-center transition-colors duration-150">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-blue-600">
+                                <path d="{{ $action['icon'] }}"/>
+                            </svg>
+                        </div>
+                        <span class="text-xs font-semibold text-slate-700 group-hover:text-blue-700">{{ $action['label'] }}</span>
+                    </a>
+                @else
+                    <div class="relative bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-4 flex flex-col items-center justify-center gap-2.5 text-center opacity-60 cursor-not-allowed">
+                        <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-slate-400">
+                                <path d="{{ $action['icon'] }}"/>
+                            </svg>
+                        </div>
+                        <span class="text-xs font-semibold text-slate-500">{{ $action['label'] }}</span>
+                        <span class="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[9px] font-bold uppercase tracking-wide">
+                            Soon
+                        </span>
+                    </div>
+                @endif
+            @endforeach
         </div>
     </div>
 
@@ -193,7 +309,7 @@
     {{-- ── Eligibility & Preferred School Cards ── --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-                    {{-- Eligibility --}}
+        {{-- Eligibility --}}
         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
             <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">Deployment Eligibility</h2>
 
@@ -351,40 +467,6 @@
             @else
                 <p class="text-sm text-slate-400 italic">Not currently deployed.</p>
             @endif
-        </div>
-    </div>
-
-    {{-- ── Quick Actions ── --}}
-    <div>
-        <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">Quick Actions</h2>
-
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-
-            @php
-                $quickActions = [
-                    ['label' => 'Requirements', 'icon' => 'M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z'],
-                    ['label' => 'Field Study', 'icon' => 'M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z'],
-                    ['label' => 'Attendance', 'icon' => 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9l2 2 4-4'],
-                    ['label' => 'Lesson Plans', 'icon' => 'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z'],
-                    ['label' => 'Internship', 'icon' => 'M20 7h-9m9 5H8m12 5H5M4 7h.01M4 12h.01M4 17h.01'],
-                    ['label' => 'Evaluations', 'icon' => 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2'],
-                ];
-            @endphp
-
-            @foreach ($quickActions as $action)
-                <div class="relative bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-4 flex flex-col items-center justify-center gap-2.5 text-center opacity-60 cursor-not-allowed">
-                    <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-slate-400">
-                            <path d="{{ $action['icon'] }}"/>
-                        </svg>
-                    </div>
-                    <span class="text-xs font-semibold text-slate-500">{{ $action['label'] }}</span>
-                    <span class="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[9px] font-bold uppercase tracking-wide">
-                        Soon
-                    </span>
-                </div>
-            @endforeach
-
         </div>
     </div>
 
