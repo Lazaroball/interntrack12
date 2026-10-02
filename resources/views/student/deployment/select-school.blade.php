@@ -26,6 +26,49 @@
         && !$isLocked
         && $selectedSchool
         && !$selectedSchool->canAcceptNewInterns();
+
+    /*
+    |--------------------------------------------------------------------------
+    | Student navigation (single source of truth for desktop + mobile)
+    |--------------------------------------------------------------------------
+    | 'url'    => null means the feature has no route yet (rendered disabled).
+    | 'active' => evaluated against the current request.
+    */
+    $onRequirements = request()->routeIs('student.field-study.requirements*');
+
+    $studentNav = [
+        [
+            'label'  => 'Dashboard',
+            'url'    => route('student.dashboard'),
+            'active' => request()->routeIs('student.dashboard'),
+        ],
+        [
+            'label'  => 'Requirements',
+            'url'    => route('student.field-study.requirements'),
+            'active' => $onRequirements,
+        ],
+        [
+            'label'  => 'Field Study',
+            'url'    => route('student.field-study'),
+            // Requirements lives under the field-study prefix, so exclude it here
+            'active' => request()->routeIs('student.field-study*') && ! $onRequirements,
+        ],
+        [
+            'label'  => 'Select School',
+            'url'    => route('student.deployment.select'),
+            'active' => request()->routeIs('student.deployment.*') || request()->is('student/deployment/*'),
+        ],
+        [
+            'label'  => 'Teaching Hours',
+            'url'    => url('/student/teaching-hours'),
+            'active' => request()->routeIs('student.teaching-hours*') || request()->is('student/teaching-hours*'),
+        ],
+        [
+            'label'  => 'Internship',
+            'url'    => null,
+            'active' => false,
+        ],
+    ];
 @endphp
 
 {{-- ══ NAV ══ --}}
@@ -46,14 +89,22 @@
                 </div>
             </div>
 
+            {{-- Desktop nav --}}
             <nav class="hidden md:flex items-center gap-1" aria-label="Student navigation">
-                <a href="{{ route('student.dashboard') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">
-                    Dashboard
-                </a>
-                <span class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 cursor-not-allowed">Requirements</span>
-                <a href="{{ route('student.field-study') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Field Study</a>
-                <span class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 cursor-not-allowed">Internship</span>
+                @foreach ($studentNav as $item)
+                    @if ($item['url'])
+                        <a href="{{ $item['url'] }}"
+                           @if ($item['active']) aria-current="page" @endif
+                           class="px-3.5 py-1.5 rounded-lg text-sm transition-colors duration-150
+                                  {{ $item['active']
+                                        ? 'font-semibold text-white bg-blue-600'
+                                        : 'font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
+                            {{ $item['label'] }}
+                        </a>
+                    @else
+                        <span class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 cursor-not-allowed">{{ $item['label'] }}</span>
+                    @endif
+                @endforeach
             </nav>
 
             <div class="flex items-center gap-3">
@@ -73,7 +124,7 @@
                         <span class="hidden sm:block text-sm font-semibold text-slate-700">{{ $student->first_name ?? 'Student' }}</span>
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400"><polyline points="6 9 12 15 18 9"/></svg>
                     </button>
-                    <div x-show="open" @click.outside="open = false"
+                    <div x-show="open" x-cloak @click.outside="open = false"
                          x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
                          x-transition:leave="transition ease-in duration-75" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
                          class="absolute right-0 mt-2 w-48 bg-white rounded-xl border border-slate-100 shadow-lg shadow-slate-200/60 py-1 z-50">
@@ -102,10 +153,20 @@
 
         {{-- Mobile nav panel --}}
         <div x-show="mobileOpen" x-cloak x-transition class="md:hidden pb-4 space-y-1">
-            <a href="{{ route('student.dashboard') }}" class="block px-3.5 py-2 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-100">Dashboard</a>
-            <span class="block px-3.5 py-2 rounded-lg text-sm font-medium text-slate-300">Requirements</span>
-            <span class="block px-3.5 py-2 rounded-lg text-sm font-medium text-slate-300">Field Study</span>
-            <span class="block px-3.5 py-2 rounded-lg text-sm font-medium text-slate-300">Internship</span>
+            @foreach ($studentNav as $item)
+                @if ($item['url'])
+                    <a href="{{ $item['url'] }}"
+                       @if ($item['active']) aria-current="page" @endif
+                       class="block px-3.5 py-2 rounded-lg text-sm
+                              {{ $item['active']
+                                    ? 'font-semibold text-white bg-blue-600'
+                                    : 'font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
+                        {{ $item['label'] }}
+                    </a>
+                @else
+                    <span class="block px-3.5 py-2 rounded-lg text-sm font-medium text-slate-300">{{ $item['label'] }}</span>
+                @endif
+            @endforeach
         </div>
     </div>
 </header>
