@@ -47,63 +47,58 @@ class StudentDeploymentController extends Controller
     /**
      * Save or update the student's partner school request.
      */
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'partner_school_id' => [
-                'required',
-                'exists:partner_schools,id'
-            ],
-            'program' => [
-                'required',
-                'in:Field Study,Internship'
-            ],
-        ]);
+   public function store(Request $request)
+{
+    $validated = $request->validate([
+        'partner_school_id' => ['required', 'exists:partner_schools,id'],
+    ]);
 
-        $student = Auth::user()?->student;
+    $student = Auth::user()?->student;
 
-        if (!$student) {
-            return back()->with('error', 'Student profile not found.');
-        }
+    if (!$student) {
+        return back()->with('error', 'Student profile not found.');
+    }
 
-        $currentSchoolYear = '2025-2026';
-        $currentSemester   = '1st Semester';
+    $currentSchoolYear = '2025-2026';
+    $currentSemester   = '1st Semester';
 
-        $existingDeployment = Deployment::where('student_id', $student->id)
-            ->where('school_year', $currentSchoolYear)
-            ->where('semester', $currentSemester)
-            ->first();
+    $existingDeployment = Deployment::where('student_id', $student->id)
+        ->where('school_year', $currentSchoolYear)
+        ->where('semester', $currentSemester)
+        ->first();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Lock the request after coordinator approval
-        |--------------------------------------------------------------------------
-        | Once a supervisor has been assigned, the deployment has already been
-        | processed by the coordinator and students can no longer change it.
-        */
-        if ($existingDeployment && !is_null($existingDeployment->supervisor_id)) {
-            return back()->with(
-                'error',
-                'Your deployment request has already been processed by the coordinator and cannot be modified.'
-            );
-        }
-
-        // Safely create or update the record without forcefully resetting existing null fields
-        Deployment::updateOrCreate(
-            [
-                'student_id'  => $student->id,
-                'school_year' => $currentSchoolYear,
-                'semester'    => $currentSemester,
-            ],
-            [
-                'partner_school_id' => $validated['partner_school_id'],
-                'program'           => $validated['program'],
-            ]
-        );
-
+    if ($existingDeployment && !is_null($existingDeployment->supervisor_id)) {
         return back()->with(
-            'success',
-            'Your preferred partner school has been submitted successfully.'
+            'error',
+            'Your deployment request has already been processed by the coordinator and cannot be modified.'
         );
     }
+
+    // Backend eligibility check (the Blade comment assumes this exists)
+    $school = PartnerSchool::findOrFail($validated['partner_school_id']);
+
+    if (!$school->canAcceptNewInterns()) {
+        return back()->with(
+            'error',
+            'That partner school is not currently available. Please choose another school.'
+        );
+    }
+
+    Deployment::updateOrCreate(
+        [
+            'student_id'  => $student->id,
+            'school_year' => $currentSchoolYear,
+            'semester'    => $currentSemester,
+        ],
+        [
+            'partner_school_id' => $validated['partner_school_id'],
+            'program'           => 'Field Study', // this page is Field Study only
+        ]
+    );
+
+    return back()->with(
+        'success',
+        'Your preferred partner school has been submitted successfully.'
+    );
+}
 }
