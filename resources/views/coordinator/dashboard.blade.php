@@ -7,14 +7,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Coordinator Dashboard – InternTrack</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>[x-cloak] { display: none !important; }</style>
 </head>
+
+@php
+    /*
+    |--------------------------------------------------------------------------
+    | Coordinator navigation (single source of truth for desktop + mobile)
+    |--------------------------------------------------------------------------
+    */
+    $coordinatorNav = [
+        [
+            'label'  => 'Dashboard',
+            'url'    => route('coordinator.dashboard'),
+            'active' => request()->routeIs('coordinator.dashboard'),
+        ],
+        [
+            'label'  => 'Students',
+            'url'    => route('coordinator.students.index'),
+            'active' => request()->routeIs('coordinator.students.*'),
+        ],
+        [
+            'label'  => 'Requirements',
+            'url'    => route('coordinator.requirements.review.index'),
+            'active' => request()->routeIs('coordinator.requirements.*'),
+        ],
+        [
+            'label'  => 'Partner Schools',
+            'url'    => route('coordinator.partner-schools.index'),
+            'active' => request()->routeIs('coordinator.partner-schools.*'),
+        ],
+        [
+            'label'  => 'Deployments',
+            'url'    => route('coordinator.deployments.index'),
+            'active' => request()->routeIs('coordinator.deployments.*'),
+        ],
+    ];
+@endphp
 
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
 
 {{-- ════════════════════════════════════════════════════════════
      TOP NAVIGATION BAR
 ════════════════════════════════════════════════════════════ --}}
-<header class="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm shadow-blue-50">
+<header class="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm shadow-blue-50" x-data="{ mobileOpen: false }">
     <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
 
@@ -31,44 +67,16 @@
 
             {{-- Center Nav --}}
             <nav class="hidden md:flex items-center gap-1" aria-label="Coordinator navigation">
-                <a href="{{ route('coordinator.dashboard') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-150
-                   {{ request()->routeIs('coordinator.dashboard')
-                        ? 'bg-blue-600 text-white font-semibold shadow-sm'
-                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
-                    Dashboard
-                </a>
-
-                <a href="{{ route('coordinator.students.index') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-150
-                   {{ request()->routeIs('coordinator.students.*')
-                        ? 'bg-blue-600 text-white font-semibold shadow-sm'
-                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
-                    Students
-                </a>
-                                <a href="{{ route('coordinator.requirements.review.index') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-150
-                   {{ request()->routeIs('coordinator.requirements.*')
-                        ? 'bg-blue-600 text-white font-semibold shadow-sm'
-                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
-                    Requirements
-                </a>
-
-                <a href="{{ route('coordinator.partner-schools.index') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-150
-                   {{ request()->routeIs('coordinator.partner-schools.*')
-                        ? 'bg-blue-600 text-white font-semibold shadow-sm'
-                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
-                    Partner Schools
-                </a>
-
-                <a href="{{ route('coordinator.deployments.index') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-150
-                   {{ request()->routeIs('coordinator.deployments.*')
-                        ? 'bg-blue-600 text-white font-semibold shadow-sm'
-                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
-                    Deployments
-                </a>
+                @foreach ($coordinatorNav as $item)
+                    <a href="{{ $item['url'] }}"
+                       @if ($item['active']) aria-current="page" @endif
+                       class="px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all duration-150
+                       {{ $item['active']
+                            ? 'bg-blue-600 text-white font-semibold shadow-sm'
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
+                        {{ $item['label'] }}
+                    </a>
+                @endforeach
             </nav>
 
             {{-- Right Controls: Last Login + User Action Dropdown --}}
@@ -84,14 +92,20 @@
 
                 {{-- Mobile Menu Trigger --}}
                 <button type="button"
+                        @click="mobileOpen = !mobileOpen"
                         class="md:hidden w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center
                                text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition-colors duration-150"
-                        aria-label="Open menu">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        aria-label="Toggle menu">
+                    <svg x-show="!mobileOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
                         <line x1="3" y1="6" x2="21" y2="6"/>
                         <line x1="3" y1="12" x2="21" y2="12"/>
                         <line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                    <svg x-show="mobileOpen" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
                 </button>
 
@@ -116,7 +130,7 @@
                         </svg>
                     </button>
 
-                    <div x-show="open" @click.outside="open = false"
+                    <div x-show="open" x-cloak @click.outside="open = false"
                          x-transition:enter="transition ease-out duration-100"
                          x-transition:enter-start="opacity-0 scale-95"
                          x-transition:enter-end="opacity-100 scale-100"
@@ -148,6 +162,20 @@
                 </div>
             </div>
 
+        </div>
+
+        {{-- Mobile nav panel --}}
+        <div x-show="mobileOpen" x-cloak x-transition class="md:hidden pb-4 space-y-1">
+            @foreach ($coordinatorNav as $item)
+                <a href="{{ $item['url'] }}"
+                   @if ($item['active']) aria-current="page" @endif
+                   class="block px-3.5 py-2 rounded-lg text-sm
+                          {{ $item['active']
+                                ? 'font-semibold text-white bg-blue-600'
+                                : 'font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100' }}">
+                    {{ $item['label'] }}
+                </a>
+            @endforeach
         </div>
     </div>
 </header>
@@ -284,33 +312,7 @@
                 </div>
             </a>
 
-            {{-- Card 3: Active Deployments --}}
-            <a href="{{ route('coordinator.deployments.index') }}"
-               class="col-span-1 block bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50
-                      p-5 flex flex-col gap-3 hover:shadow-md hover:shadow-blue-100/60
-                      hover:-translate-y-0.5 transition-all duration-200">
-                <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#059669"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
-                        <circle cx="12" cy="12" r="10"/>
-                        <polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-2xl font-extrabold text-slate-800 leading-none">
-                        {{ $stats['active_deployments'] }}
-                    </p>
-                    <p class="text-xs font-semibold text-slate-400 mt-1 leading-snug">
-                        Active Deployments
-                    </p>
-                </div>
-                <div class="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 mt-auto">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
-                    Live now
-                </div>
-            </a>
-
-            {{-- Card 4: Pending Deployments --}}
+            {{-- Card 3: Pending Deployments (submitted a preferred school, awaiting approval) --}}
             <a href="{{ route('coordinator.deployments.index') }}"
                class="col-span-1 block bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50
                       p-5 flex flex-col gap-3 hover:shadow-md hover:shadow-blue-100/60
@@ -336,7 +338,33 @@
                 </div>
             </a>
 
-            {{-- Card 5: Completed Deployments --}}
+            {{-- Card 4: Student Deployed (approved, currently deployed) --}}
+            <a href="{{ route('coordinator.deployments.index') }}"
+               class="col-span-1 block bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50
+                      p-5 flex flex-col gap-3 hover:shadow-md hover:shadow-blue-100/60
+                      hover:-translate-y-0.5 transition-all duration-200">
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#059669"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-2xl font-extrabold text-slate-800 leading-none">
+                        {{ $stats['active_deployments'] }}
+                    </p>
+                    <p class="text-xs font-semibold text-slate-400 mt-1 leading-snug">
+                        Student Deployed
+                    </p>
+                </div>
+                <div class="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 mt-auto">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
+                    Currently deployed
+                </div>
+            </a>
+
+            {{-- Card 5: Completed --}}
             <a href="{{ route('coordinator.deployments.index') }}"
                class="col-span-1 block bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50
                       p-5 flex flex-col gap-3 hover:shadow-md hover:shadow-blue-100/60
@@ -402,7 +430,7 @@
                 </div>
 
                 <div class="flex flex-col gap-2">
-                    {{-- Action 1: View Students --}}
+                    {{-- Action 1: View Students → /coordinator/students --}}
                     <a href="{{ route('coordinator.students.index') }}"
                        class="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700
                               active:bg-blue-800 text-white transition-colors duration-150
@@ -422,7 +450,7 @@
                         </div>
                     </a>
 
-                    {{-- Action 2: Partner Schools --}}
+                    {{-- Action 2: Partner Schools → /coordinator/partner-schools --}}
                     <a href="{{ route('coordinator.partner-schools.index') }}"
                        class="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200
                               hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700
@@ -441,7 +469,7 @@
                         </div>
                     </a>
 
-                    {{-- Action 3: Deploy Students --}}
+                    {{-- Action 3: Deploy Students → /coordinator/deployments (Pending Deployments) --}}
                     <a href="{{ route('coordinator.deployments.index') }}"
                        class="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200
                               hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700
@@ -457,7 +485,7 @@
                         <div class="leading-tight text-left">
                             <p class="text-sm font-semibold">Deploy Students</p>
                             <p class="text-[11px] text-slate-400">
-                                {{ $stats['pending_deployments'] }} pending
+                                {{ $stats['pending_deployments'] }} pending approval
                             </p>
                         </div>
                     </a>
@@ -484,19 +512,6 @@
                             $completedPercent = round(($stats['completed_deployments'] / $total) * 100);
                         @endphp
 
-                        {{-- Active Progress --}}
-                        <div>
-                            <div class="flex items-center justify-between mb-1.5">
-                                <span class="text-xs font-semibold text-slate-600">Active Deployments</span>
-                                <span class="text-xs font-bold text-slate-800">{{ $stats['active_deployments'] }}</span>
-                            </div>
-                            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div class="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                                     style="width: {{ $activePercent }}%"></div>
-                            </div>
-                            <p class="text-[11px] text-slate-400 mt-1">{{ $activePercent }}% of total deployments</p>
-                        </div>
-
                         {{-- Pending Progress --}}
                         <div>
                             <div class="flex items-center justify-between mb-1.5">
@@ -510,10 +525,23 @@
                             <p class="text-[11px] text-slate-400 mt-1">{{ $pendingPercent }}% of total deployments</p>
                         </div>
 
+                        {{-- Student Deployed Progress --}}
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="text-xs font-semibold text-slate-600">Student Deployed</span>
+                                <span class="text-xs font-bold text-slate-800">{{ $stats['active_deployments'] }}</span>
+                            </div>
+                            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                                     style="width: {{ $activePercent }}%"></div>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-1">{{ $activePercent }}% of total deployments</p>
+                        </div>
+
                         {{-- Completed Progress --}}
                         <div>
                             <div class="flex items-center justify-between mb-1.5">
-                                <span class="text-xs font-semibold text-slate-600">Completed Deployments</span>
+                                <span class="text-xs font-semibold text-slate-600">Completed</span>
                                 <span class="text-xs font-bold text-slate-800">{{ $stats['completed_deployments'] }}</span>
                             </div>
                             <div class="h-2 bg-slate-100 rounded-full overflow-hidden">

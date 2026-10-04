@@ -10,23 +10,23 @@ class Deployment extends Model
     use HasFactory;
 
     protected $fillable = [
-    'student_id',
-    'supervisor_id',
-    'coordinator_id',
-    'partner_school_id',
-    'program',
-    'school_year',
-    'semester',
-    'deployment_date',
-    'completed_at',
-    'status',
-    'remarks',
-];
+        'student_id',
+        'supervisor_id',
+        'coordinator_id',
+        'partner_school_id',
+        'program',          // placement type: "Field Study" or "Internship"
+        'school_year',
+        'semester',
+        'deployment_date',
+        'completed_at',
+        'status',
+        'remarks',
+    ];
 
-   protected $casts = [
-    'deployment_date' => 'date',
-    'completed_at'    => 'datetime',
-];
+    protected $casts = [
+        'deployment_date' => 'date',
+        'completed_at'    => 'datetime',
+    ];
 
     /*
     |--------------------------------------------------------------------------
@@ -61,25 +61,33 @@ class Deployment extends Model
     */
 
     /**
+     * Not completed and not cancelled.
+     */
+    public function scopeOpen($query)
+    {
+        return $query->whereNull('completed_at')
+                     ->where('status', '!=', 'cancelled');
+    }
+
+    /**
      * Students waiting for coordinator approval.
      */
     public function scopeWaiting($query)
     {
-        return $query->whereNull('supervisor_id');
+        return $query->whereNull('supervisor_id')
+                     ->where('status', '!=', 'cancelled');
     }
 
     /**
      * Students already deployed.
      */
-   public function scopeDeployed($query)
-{
-    return $query->whereNotNull('supervisor_id')
-                 ->whereNotNull('deployment_date');
-}
+    public function scopeDeployed($query)
+    {
+        return $query->whereNotNull('supervisor_id')
+                     ->whereNotNull('deployment_date')
+                     ->where('status', '!=', 'cancelled');
+    }
 
-    /**
-     * Filter by academic term.
-     */
     public function scopeForTerm($query, $schoolYear, $semester)
     {
         return $query->where('school_year', $schoolYear)
@@ -87,7 +95,8 @@ class Deployment extends Model
     }
 
     /**
-     * Filter by program.
+     * Filter by deployment TYPE (Field Study / Internship).
+     * Note: this filters deployments.program, NOT the student's course.
      */
     public function scopeProgram($query, $program)
     {
@@ -95,8 +104,28 @@ class Deployment extends Model
     }
 
     /**
-     * Filter by partner school.
+     * Filter by the STUDENT'S program (BEED / BSED / BPED).
      */
+    public function scopeStudentProgram($query, $program)
+    {
+        return $query->whereHas('student', fn ($q) => $q->where('program', $program));
+    }
+
+    /**
+     * Filter by the student's block.
+     * Pass "none" to find students who have no block assigned.
+     */
+    public function scopeInBlock($query, $block)
+    {
+        return $query->whereHas('student', function ($q) use ($block) {
+            if ($block === 'none') {
+                $q->where(fn ($b) => $b->whereNull('block')->orWhere('block', ''));
+            } else {
+                $q->where('block', $block);
+            }
+        });
+    }
+
     public function scopePartnerSchool($query, $partnerSchoolId)
     {
         return $query->where('partner_school_id', $partnerSchoolId);
@@ -109,18 +138,18 @@ class Deployment extends Model
     */
 
     /**
-     * Returns true once the coordinator has assigned a supervisor.
+     * True once the coordinator has assigned a supervisor.
      */
     public function getIsApprovedAttribute()
     {
-        return !is_null($this->supervisor_id);
+        return ! is_null($this->supervisor_id) && $this->status !== 'cancelled';
     }
 
     /**
-     * Returns true if the student can still change their school.
+     * True if the student can still change their school.
      */
     public function getCanEditAttribute()
     {
-        return is_null($this->supervisor_id);
+        return is_null($this->supervisor_id) && $this->status !== 'cancelled';
     }
 }

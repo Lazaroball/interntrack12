@@ -18,6 +18,8 @@
     | 'url'    => null means the feature has no route yet (rendered disabled).
     | 'active' => evaluated against the current request.
     */
+    $internshipUnlocked = ($student->internship_status ?? 'locked') !== 'locked';
+
     $onRequirements = request()->routeIs('student.field-study.requirements*');
 
     $studentNav = [
@@ -49,8 +51,8 @@
         ],
         [
             'label'  => 'Internship',
-            'url'    => null,
-            'active' => false,
+            'url'    => $internshipUnlocked ? route('student.internship.requirements') : null,
+            'active' => request()->routeIs('student.internship.*'),
         ],
     ];
 @endphp
@@ -173,7 +175,9 @@
             Back to Dashboard
         </a>
     </div>
-    @if ($student->field_study_status !== 'accepted')
+
+    {{-- Locked banner: hidden once Field Study is accepted, completed, or Internship is unlocked --}}
+    @if ($student->field_study_status !== 'accepted' && ! $student->has_completed_field_study && ! $internshipUnlocked)
         <div class="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-amber-50 border border-amber-200">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             <div>
@@ -185,6 +189,23 @@
             </div>
         </div>
     @endif
+
+    {{-- Completed banner --}}
+    @if ($student->has_completed_field_study)
+        <div class="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-emerald-50 border border-emerald-200">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0 mt-0.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <div>
+                <p class="text-sm font-bold text-emerald-700">Field Study completed</p>
+                <p class="text-xs text-emerald-600 mt-0.5">
+                    Completed on {{ $student->field_study_completed_at->format('F j, Y') }}.
+                    @if ($internshipUnlocked)
+                        <a href="{{ route('student.internship.requirements') }}" class="underline font-semibold">Go to Internship Requirements</a>
+                    @endif
+                </p>
+            </div>
+        </div>
+    @endif
+
     {{-- ── Field Study Progress ── --}}
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
         <div class="flex items-center justify-between mb-4">
@@ -254,7 +275,10 @@
                         </div>
                         <div class="flex items-center justify-between">
                             <span class="font-semibold text-slate-500">Status</span>
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 ring-1 ring-blue-200 capitalize">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ring-1 capitalize
+                                {{ ($deploymentInfo['status'] ?? null) === 'completed'
+                                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                                    : 'bg-blue-50 text-blue-700 ring-blue-200' }}">
                                 {{ $deploymentInfo['status'] ?? '—' }}
                             </span>
                         </div>
@@ -284,9 +308,9 @@
                             <p class="text-xl font-extrabold text-slate-700">{{ $requirementsSummary['total'] }}</p>
                             <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Total</p>
                         </div>
-                        <div class="bg-blue-50 rounded-xl p-3 text-center">
-                            <p class="text-xl font-extrabold text-blue-700">{{ $requirementsSummary['submitted'] }}</p>
-                            <p class="text-[11px] font-semibold text-blue-600 mt-0.5">Submitted</p>
+                        <div class="bg-emerald-50 rounded-xl p-3 text-center">
+                            <p class="text-xl font-extrabold text-emerald-700">{{ $requirementsSummary['approved'] }}</p>
+                            <p class="text-[11px] font-semibold text-emerald-600 mt-0.5">Approved</p>
                         </div>
                         <div class="bg-amber-50 rounded-xl p-3 text-center">
                             <p class="text-xl font-extrabold text-amber-700">{{ $requirementsSummary['pending'] }}</p>
@@ -301,11 +325,16 @@
                     <div class="divide-y divide-slate-50">
                         @foreach ($recentRequirements as $requirement)
                             <div class="flex items-center justify-between py-2.5 text-sm">
-                                <span class="font-medium text-slate-700">{{ $requirement->requirement_name }}</span>
+                                <span class="font-medium text-slate-700">{{ $requirement->requirementDefinition->name ?? $requirement->requirement_name ?? 'Requirement' }}</span>
                                 <span class="text-xs font-semibold text-slate-500 capitalize">{{ $requirement->status }}</span>
                             </div>
                         @endforeach
                     </div>
+
+                    <a href="{{ route('student.field-study.requirements') }}"
+                       class="inline-block mt-3 text-blue-600 hover:text-blue-700 font-semibold text-xs">
+                        View all requirements
+                    </a>
                 @else
                     <p class="text-sm text-slate-400 italic">No requirements submitted yet.</p>
                 @endif

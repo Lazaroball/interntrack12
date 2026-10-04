@@ -11,19 +11,50 @@ use Illuminate\Support\Facades\Storage;
 
 class RequirementReviewController extends Controller
 {
+    private const STAGES = ['Field Study', 'Internship'];
+
     /**
-     * List students awaiting Field Study requirement review, along with
-     * a computed submission-completion summary (grey/orange/green) for
-     * the current stage — split by phase (initial/ongoing).
+     * Resolve the stage from the request. Anything unknown falls back
+     * to Field Study so old links keep working.
      */
-    public function index(Request $request)
+    private function resolveStage(Request $request): string
     {
         $stage = $request->get('stage', 'Field Study');
 
+        return in_array($stage, self::STAGES, true) ? $stage : 'Field Study';
+    }
+
+    /**
+     * The students column that holds the review status for a stage.
+     */
+    private function statusColumn(string $stage): string
+    {
+        return $stage === 'Internship' ? 'internship_status' : 'field_study_status';
+    }
+
+    /**
+     * List students awaiting requirement review for the chosen stage,
+     * with a submission-completion summary (grey/orange/green),
+     * split by phase (initial/ongoing).
+     *
+     * GET /coordinator/requirements/review?stage=Field Study|Internship
+     */
+    public function index(Request $request)
+    {
+        $stage        = $this->resolveStage($request);
+        $statusColumn = $this->statusColumn($stage);
+
+        // Accept both the new ?status= and the old ?field_study_status= filter.
+        $statusFilter = $request->get('status', $request->get('field_study_status'));
+
+        $reviewableStatuses = $stage === 'Internship'
+            ? ['pending_review', 'requirements_incomplete', 'accepted', 'rejected']
+            : ['pending_review', 'requirements_incomplete', 'requirements_approved', 'accepted', 'rejected'];
+
         $students = Student::query()
-            ->when($stage === 'Field Study', fn ($q) => $q->whereIn('field_study_status', [
-                'pending_review', 'requirements_incomplete', 'requirements_approved', 'rejected',
-            ]))
+            // Internship: "locked" students haven't finished Field Study yet,
+            // so they never appear here.
+            ->whereIn($statusColumn, $reviewableStatuses)
             ->when($request->filled('search'), function ($q) use ($request) {
                 $search = $request->get('search');
                 $q->where(function ($inner) use ($search) {
@@ -35,7 +66,10 @@ class RequirementReviewController extends Controller
                 });
             })
             ->when($request->filled('program'), fn ($q) => $q->where('program', $request->get('program')))
-            ->when($request->filled('field_study_status'), fn ($q) => $q->where('field_study_status', $request->get('field_study_status')))
+            ->when(
+                filled($statusFilter),
+                fn ($q) => $q->where($statusColumn, $statusFilter)
+            )
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->paginate(15)
@@ -47,10 +81,9 @@ class RequirementReviewController extends Controller
             ->orderBy('program')
             ->pluck('program');
 
-        // ── Required, active definitions for the current stage, split by phase ──
+        // ── Required, active definitions for the stage, split by phase ──
         // (a definition with no phase set falls under 'initial' by default,
-        // matching the original Field Study requirements which predate the
-        // phase column)
+        // matching the original requirements which predate the phase column)
         $requiredDefinitions = RequirementDefinition::active()
             ->forStage($stage)
             ->where('is_required', true)
@@ -66,11 +99,9 @@ class RequirementReviewController extends Controller
 
         $allRequiredDefinitionIds = $requiredDefinitions->pluck('id');
 
-        // ── One query for every student on this page: which required
-        // definitions have a submission (any status counts as "submitted") ──
-        $studentIds = $students->pluck('id');
-
-        $submittedByStudent = Requirement::whereIn('student_id', $studentIds)
+        // One query for every student on this page: which required
+        // definitions have a submission (any status counts as "submitted").
+        $submittedByStudent = Requirement::whereIn('student_id', $students->pluck('id'))
             ->whereIn('requirement_definition_id', $allRequiredDefinitionIds)
             ->get(['student_id', 'requirement_definition_id'])
             ->groupBy('student_id');
@@ -87,9 +118,6 @@ class RequirementReviewController extends Controller
             $student->ongoing_required  = $ongoingDefinitionIds->count();
             $student->ongoing_submitted = $ongoingSubmitted;
 
-            // Overall submission-progress badge for the currently active
-            // phase view (defaults to 'initial' — the phase filter, when
-            // added client-side, decides which counts to actually show).
             $student->submission_progress = $this->progressState(
                 $initialDefinitionIds->count(),
                 $initialSubmitted
@@ -101,18 +129,23 @@ class RequirementReviewController extends Controller
             );
         }
 
-        return view('coordinator.requirements.review.index', compact('students', 'stage', 'programs'));
+        return view('coordinator.requirements.review.index', compact(
+            'students',
+            'stage',
+            'programs',
+            'statusColumn'
+        ));
     }
 
     /**
      * Grey / Orange / Green submission-progress state for a required-count
-     * vs submitted-count pair. "Submitted" only — never conflated with
+     * vs submitted-count pair. "Submitted" only, never conflated with
      * approval status.
      */
     private function progressState(int $requiredCount, int $submittedCount): string
     {
         if ($requiredCount === 0) {
-            return 'none'; // no required definitions configured for this phase — nothing to show
+            return 'none';
         }
 
         if ($submittedCount === 0) {
@@ -128,21 +161,39 @@ class RequirementReviewController extends Controller
 
     /**
      * Show a single student's requirement checklist for review.
+     *
+     * GET /coordinator/requirements/review/{student}?stage=Internship
      */
-    public function show(Student $student)
+    public function show(Request $request, Student $student)
     {
+        $stage = $this->resolveStage($request);
+
+        // An Internship checklist is meaningless until Field Study is done.
+        if ($stage === 'Internship' && $student->internship_status === 'locked') {
+            return redirect()
+                ->route('coordinator.requirements.review.show', $student)
+                ->with('error', 'This student has not completed Field Study yet, so Internship requirements are locked.');
+        }
+
         $definitions = RequirementDefinition::active()
-            ->forStage('Field Study')
+            ->forStage($stage)
+            ->orderByRaw("FIELD(phase, 'initial', 'ongoing')")
             ->orderByDesc('is_required')
             ->orderBy('name')
             ->get();
 
         $submissions = Requirement::where('student_id', $student->id)
             ->whereNotNull('requirement_definition_id')
+            ->orderBy('id')
             ->get()
             ->keyBy('requirement_definition_id');
 
-        return view('coordinator.requirements.review.show', compact('student', 'definitions', 'submissions'));
+        return view('coordinator.requirements.review.show', compact(
+            'student',
+            'stage',
+            'definitions',
+            'submissions'
+        ));
     }
 
     /**
@@ -176,53 +227,41 @@ class RequirementReviewController extends Controller
         return Storage::disk('local')->response($requirement->file_path);
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Field Study acceptance
+    |--------------------------------------------------------------------------
+    */
+
     /**
      * Manually accept a student for Field Study.
+     *
+     * Only required initial requirements are needed for initial acceptance.
+     * Ongoing requirements become available after the student is accepted.
      */
-   /**
- * Manually accept a student for Field Study.
- *
- * Only required initial requirements are needed for initial acceptance.
- * Ongoing requirements become available after the student is accepted.
- */
-public function acceptFieldStudy(Student $student)
-{
-    $requiredInitialDefinitionIds = RequirementDefinition::active()
-        ->forStage('Field Study')
-        ->where('is_required', true)
-        ->where(function ($query) {
-            $query->where('phase', 'initial')
-                ->orWhereNull('phase');
-        })
-        ->pluck('id');
+    public function acceptFieldStudy(Student $student)
+    {
+        abort_unless(
+            $student->hasAllRequiredApproved('Field Study', 'initial'),
+            422,
+            'All required initial Field Study documents must be approved before accepting this student.'
+        );
 
-    $approvedCount = Requirement::where('student_id', $student->id)
-        ->whereIn('requirement_definition_id', $requiredInitialDefinitionIds)
-        ->where('status', 'approved')
-        ->distinct('requirement_definition_id')
-        ->count('requirement_definition_id');
+        $student->update([
+            'field_study_status' => 'accepted',
+        ]);
 
-    abort_unless(
-        $approvedCount >= $requiredInitialDefinitionIds->count(),
-        422,
-        'All required initial Field Study documents must be approved before accepting this student.'
-    );
-
-    $student->update([
-        'field_study_status' => 'accepted',
-    ]);
-
-    return redirect()
-        ->route('coordinator.requirements.review.show', $student)
-        ->with('success', "{$student->full_name} has been accepted for Field Study.");
-}
+        return redirect()
+            ->route('coordinator.requirements.review.show', $student)
+            ->with('success', "{$student->full_name} has been accepted for Field Study.");
+    }
 
     /**
      * Reject a student's overall Field Study eligibility.
      */
     public function rejectFieldStudy(Request $request, Student $student)
-    { 
-        $validated = $request->validate([
+    {
+        $request->validate([
             'remarks' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -231,5 +270,74 @@ public function acceptFieldStudy(Student $student)
         return redirect()
             ->route('coordinator.requirements.review.show', $student)
             ->with('success', "{$student->full_name}'s Field Study status set to Rejected.");
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Internship acceptance
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Accept a student's INITIAL Internship requirements.
+     *
+     * After this the student may choose an Internship school
+     * (Student::can_select_internship_school).
+     */
+    public function acceptInternship(Student $student)
+    {
+        abort_if(
+            $student->internship_status === 'locked',
+            422,
+            'This student has not completed Field Study yet.'
+        );
+
+        abort_if(
+            $student->internship_completed_at !== null,
+            422,
+            'This student has already completed the Internship.'
+        );
+
+        abort_unless(
+            $student->hasAllRequiredApproved('Internship', 'initial'),
+            422,
+            'All required initial Internship documents must be approved before accepting this student.'
+        );
+
+        $student->update([
+            'internship_status' => 'accepted',
+        ]);
+
+        return redirect()
+            ->route('coordinator.requirements.review.show', ['student' => $student, 'stage' => 'Internship'])
+            ->with('success', "{$student->full_name} has been accepted for Internship. They can now choose an Internship school.");
+    }
+
+    /**
+     * Reject a student's Internship eligibility (needs correction).
+     */
+    public function rejectInternship(Request $request, Student $student)
+    {
+        $request->validate([
+            'remarks' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        abort_if(
+            $student->internship_status === 'locked',
+            422,
+            'This student has not completed Field Study yet.'
+        );
+
+        abort_if(
+            $student->internship_completed_at !== null,
+            422,
+            'This student has already completed the Internship.'
+        );
+
+        $student->update(['internship_status' => 'rejected']);
+
+        return redirect()
+            ->route('coordinator.requirements.review.show', ['student' => $student, 'stage' => 'Internship'])
+            ->with('success', "{$student->full_name}'s Internship status set to Rejected.");
     }
 }

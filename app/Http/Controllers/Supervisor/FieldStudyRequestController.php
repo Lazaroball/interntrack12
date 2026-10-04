@@ -10,10 +10,6 @@ use Illuminate\Support\Facades\DB;
 
 class FieldStudyRequestController extends Controller
 {
-    /**
-     * Display pending Field Study completion requests belonging to
-     * students currently assigned to the logged-in supervisor.
-     */
     public function index(Request $request)
     {
         $supervisor = Supervisor::where('user_id', $request->user()->id)->firstOrFail();
@@ -30,9 +26,6 @@ class FieldStudyRequestController extends Controller
         return view('supervisor.field-study-requests.index', compact('requests'));
     }
 
-    /**
-     * Approve a Field Study completion request.
-     */
     public function approve(Request $request, FieldStudyRequest $fieldStudyRequest)
     {
         $supervisor = Supervisor::where('user_id', $request->user()->id)->firstOrFail();
@@ -48,22 +41,24 @@ class FieldStudyRequestController extends Controller
         DB::transaction(function () use ($fieldStudyRequest) {
             $fieldStudyRequest->supervisor_approval = true;
 
-            if ($fieldStudyRequest->supervisor_approval && $fieldStudyRequest->coordinator_approval) {
+            $bothApproved = $fieldStudyRequest->supervisor_approval
+                && $fieldStudyRequest->coordinator_approval;
+
+            if ($bothApproved) {
                 $fieldStudyRequest->status = 'approved';
-                $fieldStudyRequest->student->update([
-                    'field_study_completed_at' => now(),
-                ]);
             }
 
             $fieldStudyRequest->save();
+
+            // Same shared completion path as the coordinator.
+            if ($bothApproved) {
+                $fieldStudyRequest->student->markFieldStudyCompleted();
+            }
         });
 
         return back()->with('success', 'Field Study completion request approved.');
     }
 
-    /**
-     * Reject a Field Study completion request.
-     */
     public function reject(Request $request, FieldStudyRequest $fieldStudyRequest)
     {
         $supervisor = Supervisor::where('user_id', $request->user()->id)->firstOrFail();
@@ -77,15 +72,15 @@ class FieldStudyRequestController extends Controller
         );
 
         $fieldStudyRequest->update([
-            'status'               => 'rejected',
-            'supervisor_approval'  => false,
+            'status'              => 'rejected',
+            'supervisor_approval' => false,
         ]);
 
         return back()->with('success', 'Field Study completion request rejected.');
     }
 
     /**
-     * Make sure the request belongs to a student currently assigned
+     * The request must belong to a student currently assigned
      * (active deployment) to the logged-in supervisor.
      */
     private function authorizeRequest(FieldStudyRequest $fieldStudyRequest, Supervisor $supervisor): void

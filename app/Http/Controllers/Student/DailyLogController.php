@@ -12,38 +12,56 @@ use Illuminate\Support\Facades\Auth;
 class DailyLogController extends Controller
 {
     /**
-     * Required Field Study hours.
+     * Required hours (Field Study and Internship share the same target for now).
      */
     const REQUIRED_HOURS = 600;
 
-    /**
-     * Resolve the authenticated student's profile.
-     */
     protected function student()
     {
         return Auth::user()->student;
     }
 
     /**
-     * Get the student's current Field Study deployment.
-     *
-     * Only an active Field Study deployment is considered.
-     * The deployment must not already be completed.
-     *
-     * Unchanged from before, per your instructions.
+     * The student's current open deployment, Field Study OR Internship.
+     * Cancelled and completed deployments are ignored.
      */
     protected function currentDeployment($student)
     {
-        if (!$student) {
+        if (! $student) {
             return null;
         }
 
         return Deployment::with(['partnerSchool', 'supervisor'])
             ->where('student_id', $student->id)
-            ->where('program', 'Field Study')
             ->whereNull('completed_at')
-            ->latest('deployment_date')
+            ->where('status', '!=', 'cancelled')
+            ->latest('id')
             ->first();
+    }
+
+    /**
+     * Keep students.field_study_hours / internship_hours equal to the total
+     * of COMPLETED logs for that program. Floored, so a student can't reach
+     * 600 on a rounded-up 599.6.
+     */
+    protected function syncStudentHours($student, ?string $program): void
+    {
+        if (! in_array($program, ['Field Study', 'Internship'], true)) {
+            return;
+        }
+
+        $deploymentIds = Deployment::where('student_id', $student->id)
+            ->where('program', $program)
+            ->pluck('id');
+
+        $total = DailyLog::where('student_id', $student->id)
+            ->whereIn('deployment_id', $deploymentIds)
+            ->where('status', 'completed')
+            ->sum('hours_rendered');
+
+        $column = $program === 'Internship' ? 'internship_hours' : 'field_study_hours';
+
+        $student->forceFill([$column => (int) floor((float) $total)])->save();
     }
 
     /**
@@ -53,54 +71,34 @@ class DailyLogController extends Controller
     {
         $student = $this->student();
 
-        abort_unless(
-            $student,
-            403,
-            'No student profile is linked to this account.'
-        );
+        abort_unless($student, 403, 'No student profile is linked to this account.');
 
         $deployment = $this->currentDeployment($student);
 
-        /*
-         * Logging is only allowed when the student has
-         * an approved Field Study deployment.
-         */
-        $canLogHours = (bool) (
-            $deployment &&
-            $deployment->is_approved
-        );
+        // Logging is only allowed with an approved deployment.
+        $canLogHours = (bool) ($deployment && $deployment->is_approved);
 
-        $todayLogs = collect();
-        $activeTodayLog = null;
+        $todayLogs       = collect();
+        $activeTodayLog  = null;
         $todayTotalHours = 0;
-        $totalHours = 0;
-        $history = collect();
+        $totalHours      = 0;
+        $history         = collect();
 
         if ($deployment) {
-
-            // Every log for today, oldest first — a student can have
-            // several sessions (completed) plus at most one open
-            // (in_progress) session in the same day.
             $todayLogs = DailyLog::where('student_id', $student->id)
                 ->where('deployment_id', $deployment->id)
                 ->whereDate('date', Carbon::today())
                 ->orderBy('time_in')
                 ->get();
 
-            // The single open session, if any. There should never be
-            // more than one at a time — timeIn() enforces that.
             $activeTodayLog = $todayLogs->firstWhere('status', 'in_progress');
 
-            // Today's total is only from today's completed sessions.
             $todayTotalHours = round(
                 (float) $todayLogs->where('status', 'completed')->sum('hours_rendered'),
                 2
             );
 
-            /*
-             * Only completed logs count toward the
-             * official 600-hour Field Study total — across all days.
-             */
+            // Only completed logs count toward the official total.
             $totalHours = DailyLog::where('student_id', $student->id)
                 ->where('deployment_id', $deployment->id)
                 ->where('status', 'completed')
@@ -117,30 +115,25 @@ class DailyLogController extends Controller
 
         $progressPercent = min(
             100,
-            round(
-                ($totalHours / self::REQUIRED_HOURS) * 100,
-                1
-            )
+            round(($totalHours / self::REQUIRED_HOURS) * 100, 1)
         );
 
         return view('student.teaching-hours.index', [
-            'deployment' => $deployment,
-            'canLogHours' => $canLogHours,
-            'todayLogs' => $todayLogs,
-            'activeTodayLog' => $activeTodayLog,
+            'deployment'      => $deployment,
+            'program'         => $deployment->program ?? null,
+            'canLogHours'     => $canLogHours,
+            'todayLogs'       => $todayLogs,
+            'activeTodayLog'  => $activeTodayLog,
             'todayTotalHours' => $todayTotalHours,
-            'totalHours' => $totalHours,
-            'requiredHours' => self::REQUIRED_HOURS,
+            'totalHours'      => $totalHours,
+            'requiredHours'   => self::REQUIRED_HOURS,
             'progressPercent' => $progressPercent,
-            'history' => $history,
+            'history'         => $history,
         ]);
     }
 
     /**
      * Record Time In for a new session.
-     *
-     * Only blocked if the student already has an OPEN (in_progress)
-     * session today. Prior completed sessions do not block a new one.
      */
     public function timeIn(Request $request)
     {
@@ -150,20 +143,13 @@ class DailyLogController extends Controller
 
         $deployment = $this->currentDeployment($student);
 
-        /*
-         * Student must have an approved Field Study deployment.
-         */
         abort_unless(
             $deployment && $deployment->is_approved,
             403,
-            'You need an approved Field Study deployment before you can log hours.'
+            'You need an approved deployment before you can log hours.'
         );
 
-        /*
-         * Only block Time In if there is currently an OPEN session
-         * today. Completed sessions from earlier today are fine —
-         * this is what allows multiple sessions per day.
-         */
+        // Only block if there is currently an OPEN session today.
         $activeLog = DailyLog::where('student_id', $student->id)
             ->where('deployment_id', $deployment->id)
             ->whereDate('date', Carbon::today())
@@ -171,32 +157,23 @@ class DailyLogController extends Controller
             ->first();
 
         if ($activeLog) {
-            return back()->with(
-                'error',
-                'You are already timed in.'
-            );
+            return back()->with('error', 'You are already timed in.');
         }
 
-        // Always a new row — never updateOrCreate. Each session is
-        // its own DailyLog record.
         DailyLog::create([
-            'student_id' => $student->id,
+            'student_id'    => $student->id,
             'deployment_id' => $deployment->id,
-            'date' => Carbon::today()->toDateString(),
-            'time_in' => Carbon::now()->format('H:i:s'),
-            'gps_location' => null,
-            'status' => 'in_progress',
+            'date'          => Carbon::today()->toDateString(),
+            'time_in'       => Carbon::now()->format('H:i:s'),
+            'gps_location'  => null,
+            'status'        => 'in_progress',
         ]);
 
-        return back()->with(
-            'success',
-            'Time in recorded.'
-        );
+        return back()->with('success', 'Time in recorded.');
     }
 
     /**
-     * Record Time Out for the currently open session and
-     * automatically calculate hours rendered.
+     * Record Time Out for the open session and calculate hours rendered.
      */
     public function timeOut(Request $request)
     {
@@ -206,37 +183,20 @@ class DailyLogController extends Controller
 
         $deployment = $this->currentDeployment($student);
 
-        /*
-         * Find the one open session for today belonging to the
-         * authenticated student's current deployment. This updates
-         * that specific row only — no other DailyLog is touched.
-         */
         $log = DailyLog::where('student_id', $student->id)
             ->when($deployment, fn ($query) => $query->where('deployment_id', $deployment->id))
             ->whereDate('date', Carbon::today())
             ->where('status', 'in_progress')
             ->first();
 
-        if (!$log) {
-            return back()->with(
-                'error',
-                'No open time-in found for today.'
-            );
+        if (! $log) {
+            return back()->with('error', 'No open time-in found for today.');
         }
 
-        /*
-         * Combine the stored date and time_in because
-         * MySQL TIME contains no date information.
-         */
-        $timeIn = Carbon::parse(
-            $log->date->toDateString() . ' ' . $log->time_in
-        );
-
+        // MySQL TIME has no date, so combine the stored date and time_in.
+        $timeIn  = Carbon::parse($log->date->toDateString() . ' ' . $log->time_in);
         $timeOut = Carbon::now();
 
-        /*
-         * Prevent invalid negative durations.
-         */
         if ($timeOut->lessThan($timeIn)) {
             return back()->with(
                 'error',
@@ -244,23 +204,18 @@ class DailyLogController extends Controller
             );
         }
 
-        /*
-         * Calculate rendered hours on the server.
-         * The student never submits this value.
-         */
-        $minutes = $timeIn->diffInMinutes($timeOut);
-
-        $hours = round($minutes / 60, 2);
+        // Calculated on the server. The student never submits this value.
+        $hours = round($timeIn->diffInMinutes($timeOut) / 60, 2);
 
         $log->update([
-            'time_out' => $timeOut->format('H:i:s'),
+            'time_out'       => $timeOut->format('H:i:s'),
             'hours_rendered' => $hours,
-            'status' => 'completed',
+            'status'         => 'completed',
         ]);
 
-        return back()->with(
-            'success',
-            "Time out recorded — {$hours} hours logged."
-        );
+        $program = optional(Deployment::find($log->deployment_id))->program;
+        $this->syncStudentHours($student, $program);
+
+        return back()->with('success', "Time out recorded: {$hours} hours logged.");
     }
 }

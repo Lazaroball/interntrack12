@@ -11,41 +11,32 @@ use Illuminate\Support\Facades\Auth;
 
 class FieldStudyController extends Controller
 {
-    /**
-     * Field Study requirement, in hours.
-     * Kept consistent with StudentDashboardController's value, which is
-     * the same authoritative source (students.field_study_hours).
-     */
     protected int $fieldStudyRequiredHours = 600;
 
     /**
-     * Display the authenticated student's Field Study overview.
-     *
      * GET /student/field-study
-     * Route name: student.field-study
      */
     public function index(): View
     {
-        $student = Student::with([
-            'currentDeployment.partnerSchool',
-            'currentDeployment.supervisor',
-        ])->where('user_id', Auth::id())->first();
+        $student = Student::where('user_id', Auth::id())->first();
 
         abort_unless($student !== null, 403, 'No student profile found for this account.');
 
-        // ── Field Study hour progress ──
-        // students.field_study_hours is treated as the official accumulated
-        // value (same source already used by StudentDashboardController),
-        // so this page does not introduce a second/competing calculation.
-        $completedHours = $student->field_study_hours ?? 0;
-        $requiredHours  = $this->fieldStudyRequiredHours;
-        $remainingHours = max(0, $requiredHours - $completedHours);
+        // ── Hour progress ──
+        $completedHours  = $student->field_study_hours ?? 0;
+        $requiredHours   = $this->fieldStudyRequiredHours;
+        $remainingHours  = max(0, $requiredHours - $completedHours);
         $progressPercent = $requiredHours > 0
             ? min(100, (int) round(($completedHours / $requiredHours) * 100))
             : 0;
 
-        // ── Deployment / Supervisor ──
-        $currentDeployment = $student->currentDeployment;
+        // ── Latest Field Study deployment (open or completed, not cancelled) ──
+        $currentDeployment = $student->deployments()
+            ->with(['partnerSchool', 'supervisor'])
+            ->where('program', 'Field Study')
+            ->where('status', '!=', 'cancelled')
+            ->latest('id')
+            ->first();
 
         $deploymentInfo = $currentDeployment ? [
             'partner_school'  => $currentDeployment->partnerSchool->school_name ?? null,
@@ -58,9 +49,13 @@ class FieldStudyController extends Controller
             'supervisor_name' => $currentDeployment->supervisor->full_name ?? null,
         ] : null;
 
-        // ── Requirements summary (queried directly by student_id — no
-        //    Requirement relationship assumed on the Student model) ──
+        // ── Field Study requirements only ──
+        // Legacy rows (no definition) are treated as Field Study.
         $requirements = Requirement::where('student_id', $student->id)
+            ->where(function ($q) {
+                $q->whereNull('requirement_definition_id')
+                  ->orWhereHas('requirementDefinition', fn ($d) => $d->where('stage', 'Field Study'));
+            })
             ->orderByDesc('submitted_at')
             ->get();
 
@@ -68,14 +63,19 @@ class FieldStudyController extends Controller
             'total'     => $requirements->count(),
             'submitted' => $requirements->filter(fn ($r) => strtolower((string) $r->status) === 'submitted')->count(),
             'pending'   => $requirements->filter(fn ($r) => strtolower((string) $r->status) === 'pending')->count(),
+            'approved'  => $requirements->filter(fn ($r) => strtolower((string) $r->status) === 'approved')->count(),
             'rejected'  => $requirements->filter(fn ($r) => strtolower((string) $r->status) === 'rejected')->count(),
         ];
 
         $recentRequirements = $requirements->take(5);
 
-        // ── Daily log / teaching-hour summary (queried directly by
-        //    student_id — no DailyLog relationship assumed on Student) ──
+        // ── Daily logs for Field Study deployments only ──
+        $fieldStudyDeploymentIds = $student->deployments()
+            ->where('program', 'Field Study')
+            ->pluck('id');
+
         $dailyLogs = DailyLog::where('student_id', $student->id)
+            ->whereIn('deployment_id', $fieldStudyDeploymentIds)
             ->orderByDesc('date')
             ->get();
 
@@ -102,8 +102,8 @@ class FieldStudyController extends Controller
             'requirementsSummary' => $requirementsSummary,
             'recentRequirements'  => $recentRequirements,
 
-            'dailyLogSummary'  => $dailyLogSummary,
-            'recentDailyLogs'  => $recentDailyLogs,
+            'dailyLogSummary' => $dailyLogSummary,
+            'recentDailyLogs' => $recentDailyLogs,
         ]);
     }
 }

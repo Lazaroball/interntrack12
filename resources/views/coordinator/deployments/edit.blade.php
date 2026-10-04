@@ -1,3 +1,5 @@
+{{-- resources/views/coordinator/deployments/edit.blade.php --}}
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
@@ -8,6 +10,11 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body class="min-h-screen bg-slate-50/50 text-slate-900 antialiased selection:bg-blue-500 selection:text-white">
+
+@php
+    $isCancelled = $deployment->status === 'cancelled';
+    $isLocked    = $deployment->completed_at || $isCancelled;
+@endphp
 
 {{-- Navigation --}}
 <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm">
@@ -28,6 +35,7 @@
             <nav class="hidden md:flex items-center gap-1">
                 <a href="{{ route('coordinator.dashboard') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition">Dashboard</a>
                 <a href="{{ route('coordinator.students.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition">Students</a>
+                <a href="{{ route('coordinator.requirements.review.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition">Requirements</a>
                 <a href="{{ route('coordinator.partner-schools.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition">Partner Schools</a>
                 <a href="{{ route('coordinator.deployments.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-blue-600 bg-blue-50/80">Deployments</a>
             </nav>
@@ -49,7 +57,16 @@
         <h1 class="text-2xl font-black text-slate-800 tracking-tight mt-1">
             {{ $deployment->student->first_name }} {{ $deployment->student->last_name }}
         </h1>
-        <p class="text-sm text-slate-500 mt-1">Student No. {{ $deployment->student->student_number }}</p>
+        <p class="text-sm text-slate-500 mt-1">
+            Student No. {{ $deployment->student->student_number }}
+            &middot; {{ $deployment->student->program ?: 'No program' }}
+            &middot;
+            @if ($deployment->student->block)
+                Block {{ $deployment->student->block }}
+            @else
+                <span class="font-semibold text-amber-500">No block</span>
+            @endif
+        </p>
     </div>
 
     {{-- Validation errors --}}
@@ -64,22 +81,33 @@
         </div>
     @endif
 
+    {{-- Locked banner --}}
+    @if ($isLocked)
+        <div class="rounded-2xl border border-rose-100 bg-rose-50 px-5 py-4 text-sm text-rose-700">
+            <p class="font-bold">This deployment is {{ $isCancelled ? 'cancelled' : 'completed' }} and can no longer be edited.</p>
+        </div>
+    @endif
+
     {{-- Current state summary --}}
     <div class="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm shadow-blue-50/50 flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl flex items-center justify-center border
-            @if ($deployment->completed_at) bg-slate-100 text-slate-500 border-slate-200
+            @if ($isCancelled) bg-rose-50 text-rose-600 border-rose-100
+            @elseif ($deployment->completed_at) bg-slate-100 text-slate-500 border-slate-200
             @elseif ($deployment->supervisor_id) bg-blue-50 text-blue-600 border-blue-100
             @else bg-amber-50 text-amber-600 border-amber-100 @endif">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4.5 h-4.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
         </div>
         <div>
             <p class="text-sm font-bold text-slate-800">
-                @if ($deployment->completed_at) Completed
+                @if ($isCancelled) Cancelled
+                @elseif ($deployment->completed_at) Completed
                 @elseif ($deployment->supervisor_id) Current deployment
                 @else Waiting for approval @endif
             </p>
             <p class="text-xs text-slate-400">
-                @if ($deployment->completed_at)
+                @if ($isCancelled)
+                    Cancelled on {{ $deployment->updated_at->format('M d, Y') }}
+                @elseif ($deployment->completed_at)
                     Completed on {{ $deployment->completed_at->format('M d, Y') }}
                 @elseif ($deployment->deployment_date)
                     Deployed on {{ $deployment->deployment_date->format('M d, Y') }}
@@ -95,73 +123,101 @@
         @csrf
         @method('PUT')
 
-        <div>
-            <label for="partner_school_id" class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Partner School</label>
-            <select
-                id="partner_school_id"
-                name="partner_school_id"
-                required
-                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
-            >
-                @foreach ($partnerSchools as $school)
-                    <option value="{{ $school->id }}" @selected(old('partner_school_id', $deployment->partner_school_id) == $school->id)>
-                        {{ $school->school_name }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
+        <fieldset @if ($isLocked) disabled @endif class="space-y-5">
 
-        <div>
-            <label for="supervisor_id" class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Supervisor</label>
-            <select
-                id="supervisor_id"
-                name="supervisor_id"
-                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
-            >
-                <option value="">Not yet assigned</option>
-                @foreach ($supervisors as $supervisor)
-                    <option value="{{ $supervisor->id }}" @selected(old('supervisor_id', $deployment->supervisor_id) == $supervisor->id)>
-                        {{ $supervisor->last_name }}, {{ $supervisor->first_name }}
-                    </option>
-                @endforeach
-            </select>
-            <p class="mt-1.5 text-xs text-slate-400">Assigning a supervisor here approves the deployment, same as approving it from the dashboard.</p>
-        </div>
+            <div>
+                <label for="partner_school_id" class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Partner School</label>
+                <select
+                    id="partner_school_id"
+                    name="partner_school_id"
+                    required
+                    class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
+                >
+                    @foreach ($partnerSchools as $school)
+                        <option value="{{ $school->id }}" @selected(old('partner_school_id', $deployment->partner_school_id) == $school->id)>
+                            {{ $school->school_name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
 
-        <div>
-            <label for="program" class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Program</label>
-            <select
-                id="program"
-                name="program"
-                required
-                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
-            >
-                <option value="Field Study" @selected(old('program', $deployment->program) == 'Field Study')>Field Study</option>
-                <option value="Internship" @selected(old('program', $deployment->program) == 'Internship')>Internship</option>
-            </select>
-        </div>
+            <div>
+                <label for="supervisor_id" class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Supervisor</label>
+                <select
+                    id="supervisor_id"
+                    name="supervisor_id"
+                    class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 bg-white focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
+                >
+                    <option value="">Not yet assigned</option>
+                    @foreach ($supervisors as $supervisor)
+                        <option value="{{ $supervisor->id }}" @selected(old('supervisor_id', $deployment->supervisor_id) == $supervisor->id)>
+                            {{ $supervisor->last_name }}, {{ $supervisor->first_name }}
+                        </option>
+                    @endforeach
+                </select>
+                <p class="mt-1.5 text-xs text-slate-400">Assigning a supervisor here approves the deployment, same as approving it from the dashboard.</p>
+            </div>
 
-        <div>
-            <label for="remarks" class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Remarks</label>
-            <textarea
-                id="remarks"
-                name="remarks"
-                rows="4"
-                maxlength="1000"
-                placeholder="Optional notes about this deployment"
-                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 placeholder-slate-400 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
-            >{{ old('remarks', $deployment->remarks) }}</textarea>
-        </div>
+            {{-- Deployment type is read-only. The hidden input submits the value so validation still passes. --}}
+            <div>
+                <label for="program_display" class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Deployment Type</label>
+                <select
+                    id="program_display"
+                    disabled
+                    class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-500 bg-slate-50 outline-none cursor-not-allowed"
+                >
+                    <option value="Field Study" @selected($deployment->program == 'Field Study')>Field Study</option>
+                    <option value="Internship" @selected($deployment->program == 'Internship')>Internship</option>
+                </select>
+                <input type="hidden" name="program" value="{{ $deployment->program }}">
+                <p class="mt-1.5 text-xs text-slate-400">The deployment type cannot be changed. To change it, cancel this deployment and create a new one.</p>
+            </div>
+
+            <div>
+                <label for="remarks" class="mb-1 block text-[10px] font-bold uppercase tracking-wider text-slate-400">Remarks</label>
+                <textarea
+                    id="remarks"
+                    name="remarks"
+                    rows="4"
+                    maxlength="1000"
+                    placeholder="Optional notes about this deployment"
+                    class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 placeholder-slate-400 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
+                >{{ old('remarks', $deployment->remarks) }}</textarea>
+            </div>
+        </fieldset>
 
         <div class="flex items-center justify-between pt-2 border-t border-slate-100">
             <a href="{{ route('coordinator.deployments.index') }}" class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition">
-                Cancel
+                Back
             </a>
-            <button type="submit" class="inline-flex items-center justify-center px-5 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/15 transition">
-                Save Changes
-            </button>
+            @unless ($isLocked)
+                <button type="submit" class="inline-flex items-center justify-center px-5 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/15 transition">
+                    Save Changes
+                </button>
+            @endunless
         </div>
     </form>
+
+    {{-- Cancel deployment --}}
+    @unless ($isLocked)
+        <div class="bg-white rounded-2xl border border-rose-100 p-5 shadow-sm flex items-center justify-between gap-4">
+            <div>
+                <p class="text-sm font-bold text-slate-800">Cancel this deployment</p>
+                <p class="text-xs text-slate-400">The student will be able to be deployed again. The record is kept in the Cancelled list.</p>
+            </div>
+            <form
+                method="POST"
+                action="{{ route('coordinator.deployments.cancel', $deployment) }}"
+                onsubmit="return confirm('Cancel this deployment? The student will need to be deployed again.');"
+            >
+                @csrf
+                @method('PATCH')
+                <button type="submit" class="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-100 transition">
+                    Cancel Deployment
+                </button>
+            </form>
+        </div>
+    @endunless
 
     {{-- Danger zone --}}
     <div class="bg-white rounded-2xl border border-rose-100 p-5 shadow-sm flex items-center justify-between gap-4">

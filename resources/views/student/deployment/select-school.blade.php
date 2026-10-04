@@ -15,6 +15,12 @@
 @php
     $isLocked = $existingDeployment && !is_null($existingDeployment->supervisor_id);
 
+    // Student cannot choose a school yet (reason supplied by the controller)
+    $isBlocked = filled($blockReason ?? null);
+
+    // Inputs are disabled / submit hidden in either situation
+    $isInputDisabled = $isLocked || $isBlocked;
+
     $selectedSchool = $existingDeployment
         ? $partnerSchools->firstWhere('id', $existingDeployment->partner_school_id)
         : null;
@@ -65,8 +71,8 @@
         ],
         [
             'label'  => 'Internship',
-            'url'    => null,
-            'active' => false,
+            'url'    => $student->internship_status !== 'locked' ? route('student.internship.requirements') : null,
+            'active' => request()->routeIs('student.internship.*'),
         ],
     ];
 @endphp
@@ -176,9 +182,9 @@
     {{-- ── Header ── --}}
     <div class="flex items-center justify-between">
         <div>
-            <p class="text-[11px] font-bold tracking-[0.2em] uppercase text-blue-500 mb-0.5">Student · Field Study</p>
+            <p class="text-[11px] font-bold tracking-[0.2em] uppercase text-blue-500 mb-0.5">Student · {{ $program }}</p>
             <h1 class="text-2xl font-extrabold text-slate-800 leading-tight">Partner School Deployment</h1>
-            <p class="text-sm text-slate-400 mt-1">Select your preferred partner school for your Field Study deployment.</p>
+            <p class="text-sm text-slate-400 mt-1">Select your preferred partner school for your {{ $program }} deployment.</p>
         </div>
 
         <a href="{{ route('student.dashboard') }}"
@@ -211,6 +217,21 @@
                     <li>{{ $error }}</li>
                 @endforeach
             </ul>
+        </div>
+    @endif
+
+    {{-- ── Blocked banner (cannot choose a school yet) ── --}}
+    @if ($isBlocked)
+        <div class="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-amber-50 border border-amber-200">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div class="flex-1">
+                <p class="text-sm font-bold text-amber-700">School selection not available yet</p>
+                <p class="text-xs text-amber-600 mt-0.5">{{ $blockReason }}</p>
+                <a href="{{ route($program === 'Internship' ? 'student.internship.requirements' : 'student.field-study.requirements') }}"
+                   class="mt-3 inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors duration-150">
+                    Go to Requirements
+                </a>
+            </div>
         </div>
     @endif
 
@@ -322,7 +343,7 @@
         <form method="POST" action="{{ route('student.deployment.store') }}" class="space-y-6">
             @csrf
 
-            <fieldset @if ($isLocked) disabled @endif>
+            <fieldset @if ($isInputDisabled) disabled @endif>
 
                 {{-- ── Available Partner Schools ── --}}
                 <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
@@ -342,9 +363,9 @@
                                 // schools that are unavailable AND are not the one already
                                 // selected. The backend re-checks eligibility on submit
                                 // regardless of what the radio state allows here.
-                                $disableRadio = $isLocked || (!$canSelect && !$isChecked);
+                                $disableRadio = $isInputDisabled || (!$canSelect && !$isChecked);
 
-                                $showStaleSelectionNote = $isChecked && !$canSelect && !$isLocked;
+                                $showStaleSelectionNote = $isChecked && !$canSelect && !$isInputDisabled;
 
                                 if (!$school->hasValidMoa()) {
                                     $badgeLabel   = 'Invalid MOA';
@@ -437,7 +458,7 @@
             </fieldset>
 
             {{-- ── Submit ── --}}
-            @unless ($isLocked)
+            @unless ($isInputDisabled)
                 <div class="flex justify-end">
                     <button type="submit"
                             class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold

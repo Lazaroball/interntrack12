@@ -9,6 +9,16 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
+@php
+    $internshipDefinitions = $internshipDefinitions ?? collect();
+    $submissions           = $submissions ?? collect();
+
+    $supervisorPassed  = (bool) $student->internship_supervisor_passed_at;
+    $coordinatorPassed = (bool) $student->internship_coordinator_passed_at;
+
+    $hasApprovedInternshipDeployment = (bool) ($internshipDeployment && $internshipDeployment->is_approved);
+@endphp
+
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
 
 {{-- ══ NAV ══ --}}
@@ -121,6 +131,19 @@
 
 <main class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
+    {{-- Flash messages --}}
+    @if (session('success'))
+        <div class="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-semibold">
+            {{ session('success') }}
+        </div>
+    @endif
+
+    @if (session('error'))
+        <div class="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm font-semibold">
+            {{ session('error') }}
+        </div>
+    @endif
+
     {{-- Breadcrumb --}}
     <nav class="flex items-center gap-2 text-xs text-slate-400" aria-label="Breadcrumb">
         <a href="{{ route('supervisor.dashboard') }}" class="hover:text-blue-600 transition-colors">Dashboard</a>
@@ -163,6 +186,15 @@
                                 <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>Not Eligible
                             </span>
                         @endif
+
+                        {{-- Internship result (both coordinator and supervisor passed) --}}
+                        @if ($student->is_internship_valid)
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><polyline points="20 6 9 17 4 12"/></svg>
+                                Internship Valid
+                            </span>
+                        @endif
+
                         {{-- Account status --}}
                         @if ($student->status === 'active')
                             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold">
@@ -362,6 +394,12 @@
                                 <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
                                 <span class="text-sm font-bold text-slate-600">{{ ucfirst($deployment->status ?? 'Unknown') }}</span>
                             @endif
+
+                            @if ($deployment->program)
+                                <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-slate-100 text-slate-600 border border-slate-200/50">
+                                    {{ $deployment->program }}
+                                </span>
+                            @endif
                         </div>
                         <span class="text-xs text-slate-500 font-medium">
                             Deployed on: {{ $deployment->deployment_date ? \Carbon\Carbon::parse($deployment->deployment_date)->format('M d, Y') : '—' }}
@@ -436,6 +474,224 @@
                     </div>
                 @endif
 
+            </div>
+
+            {{-- Internship Documents (read only) ────────────── --}}
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
+                <div class="mb-5">
+                    <h2 class="text-xs font-bold uppercase tracking-widest text-blue-500">Internship Documents (read only)</h2>
+                    @if ($student->internship_status !== 'locked')
+                        <p class="text-xs text-slate-400 mt-1">
+                            Review status: <span class="font-semibold text-slate-600">{{ $student->internship_status_label }}</span>
+                        </p>
+                    @endif
+                </div>
+
+                @if ($student->internship_status === 'locked')
+                    <p class="px-4 py-6 text-sm text-slate-400 italic">Internship documents are not available yet. They unlock after the student completes Field Study.</p>
+                @else
+                    @forelse ($internshipDefinitions->groupBy('phase') as $phase => $group)
+                        <div class="{{ ! $loop->first ? 'mt-5' : '' }}">
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                                {{ $phase === 'ongoing' ? 'Ongoing Requirements' : 'Initial Requirements' }}
+                            </p>
+
+                            <div class="divide-y divide-slate-50 rounded-xl border border-slate-100 overflow-hidden">
+                                @foreach ($group as $definition)
+                                    @php $submission = $submissions->get($definition->id); @endphp
+                                    <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                                        <div>
+                                            <p class="text-sm font-semibold text-slate-800">{{ $definition->name }}</p>
+                                            <p class="text-[11px] font-semibold {{ $definition->is_required ? 'text-red-500' : 'text-slate-400' }}">
+                                                {{ $definition->is_required ? 'Required' : 'Optional' }}
+                                                @if ($submission?->submitted_at)
+                                                    <span class="text-slate-400 font-medium">&middot; Submitted {{ \Carbon\Carbon::parse($submission->submitted_at)->format('M d, Y') }}</span>
+                                                @endif
+                                            </p>
+                                            @if ($submission?->remarks)
+                                                <p class="text-[11px] text-slate-500 mt-0.5"><span class="font-bold">Remarks:</span> {{ $submission->remarks }}</p>
+                                            @endif
+                                        </div>
+
+                                        <div class="flex items-center gap-3">
+                                            @if ($submission)
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ring-1
+                                                    {{ $submission->status === 'approved' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                                                       : ($submission->status === 'rejected' ? 'bg-red-50 text-red-600 ring-red-200'
+                                                       : 'bg-amber-50 text-amber-700 ring-amber-200') }}">
+                                                    {{ $submission->status === 'pending' ? 'Pending Review' : ucfirst($submission->status) }}
+                                                </span>
+                                                <a href="{{ route('supervisor.students.requirements.file', [$student, $submission]) }}" target="_blank"
+                                                   class="text-blue-600 hover:text-blue-700 font-semibold text-xs">View File</a>
+                                            @else
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-50 text-slate-400 ring-1 ring-slate-200">
+                                                    Not Submitted
+                                                </span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @empty
+                        <p class="px-4 py-6 text-sm text-slate-400 italic">No Internship requirements have been configured yet.</p>
+                    @endforelse
+                @endif
+            </div>
+
+            {{-- Internship Clearance ────────────────────────── --}}
+            <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
+                <h2 class="text-xs font-bold uppercase tracking-widest text-blue-500 mb-5">Internship Clearance</h2>
+
+                {{-- Checklist --}}
+                <ul class="space-y-2.5 mb-5">
+                    @php
+                        $internshipChecks = [
+                            [
+                                'ok'    => $student->internship_status === 'accepted',
+                                'label' => 'Accepted for Internship',
+                                'note'  => $student->internship_status_label,
+                            ],
+                            [
+                                'ok'    => $hasApprovedInternshipDeployment,
+                                'label' => 'Active approved Internship deployment',
+                                'note'  => $hasApprovedInternshipDeployment
+                                            ? ($internshipDeployment->partnerSchool?->school_name ?? 'Deployed')
+                                            : 'None assigned to you',
+                            ],
+                            [
+                                'ok'    => (bool) $allRequiredApproved,
+                                'label' => 'All required Internship documents approved',
+                                'note'  => $allRequiredApproved ? 'Complete' : 'Incomplete',
+                            ],
+                        ];
+                    @endphp
+
+                    @foreach ($internshipChecks as $check)
+                        <li class="flex items-center justify-between gap-3 text-sm">
+                            <span class="flex items-center gap-2.5 text-slate-700 font-semibold">
+                                @if ($check['ok'])
+                                    <span class="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><polyline points="20 6 9 17 4 12"/></svg>
+                                    </span>
+                                @else
+                                    <span class="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                    </span>
+                                @endif
+                                {{ $check['label'] }}
+                            </span>
+                            <span class="text-xs {{ $check['ok'] ? 'text-emerald-600' : 'text-slate-400' }} font-semibold">{{ $check['note'] }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+
+                {{-- Pass status --}}
+                <div class="rounded-xl border border-slate-100 overflow-hidden">
+                    <div class="divide-y divide-slate-50">
+                        <div class="flex items-center justify-between gap-3 px-4 py-3">
+                            <span class="text-sm font-semibold text-slate-700">Coordinator</span>
+                            @if ($coordinatorPassed)
+                                <span class="text-xs font-semibold text-emerald-600">
+                                    Passed on {{ \Carbon\Carbon::parse($student->internship_coordinator_passed_at)->format('M d, Y') }}
+                                </span>
+                            @else
+                                <span class="text-xs font-semibold text-slate-400">Not yet passed</span>
+                            @endif
+                        </div>
+                        <div class="flex items-center justify-between gap-3 px-4 py-3">
+                            <span class="text-sm font-semibold text-slate-700">Supervisor</span>
+                            @if ($supervisorPassed)
+                                <span class="text-xs font-semibold text-emerald-600">
+                                    Passed on {{ \Carbon\Carbon::parse($student->internship_supervisor_passed_at)->format('M d, Y') }}
+                                </span>
+                            @else
+                                <span class="text-xs font-semibold text-slate-400">Not yet passed</span>
+                            @endif
+                        </div>
+                        <div class="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50/60">
+                            <span class="text-sm font-bold text-slate-800">Result</span>
+                            @if ($student->is_internship_valid)
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-200">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>VALID
+                                </span>
+                            @else
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold border border-amber-200">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Not valid yet
+                                </span>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                <p class="mt-3 text-xs text-slate-400">
+                    The student is only valid when BOTH the coordinator and the supervisor have passed.
+                </p>
+
+                {{-- Pass action --}}
+                <div class="mt-5 pt-4 border-t border-slate-100">
+                    @if ($student->internship_completed_at)
+                        <div class="flex items-start gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                            <div class="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-emerald-700">Internship Valid</p>
+                                <p class="text-xs text-emerald-600 mt-0.5">
+                                    Both the coordinator and the supervisor have passed this student.
+                                </p>
+                            </div>
+                        </div>
+                    @elseif ($supervisorPassed)
+                        <div class="flex items-start gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                            <div class="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-emerald-700">
+                                    You passed this student on {{ \Carbon\Carbon::parse($student->internship_supervisor_passed_at)->format('F j, Y') }}
+                                </p>
+                                <p class="text-xs text-emerald-600 mt-0.5">
+                                    {{ $coordinatorPassed
+                                        ? 'Both passes are recorded.'
+                                        : 'Waiting for the coordinator to pass this student.' }}
+                                </p>
+                            </div>
+                        </div>
+                    @else
+                        <form method="POST"
+                              action="{{ route('supervisor.students.pass-internship', $student) }}"
+                              onsubmit="return confirm('Pass this student for the Internship? The student becomes valid once the coordinator also passes.');"
+                              class="flex flex-wrap items-center justify-between gap-3">
+                            @csrf
+                            @method('PATCH')
+
+                            <p class="text-xs text-slate-400 max-w-md">
+                                Your pass is recorded separately from the coordinator's pass.
+                            </p>
+
+                            <button type="submit"
+                                    @disabled(! $canPassInternship)
+                                    class="px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors duration-150
+                                           {{ $canPassInternship
+                                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow shadow-emerald-200'
+                                                : 'bg-slate-200 text-slate-400 cursor-not-allowed' }}">
+                                Pass Student (Supervisor)
+                            </button>
+                        </form>
+
+                        @unless ($canPassInternship)
+                            <p class="mt-3 text-xs font-semibold text-amber-600">
+                                @if ($student->internship_status !== 'accepted')
+                                    This student has not been accepted for Internship yet.
+                                @elseif (! $hasApprovedInternshipDeployment)
+                                    There is no approved Internship deployment assigned to you for this student.
+                                @elseif (! $allRequiredApproved)
+                                    All required Internship documents must be approved first.
+                                @endif
+                            </p>
+                        @endunless
+                    @endif
+                </div>
             </div>
 
         </div>

@@ -75,9 +75,13 @@
 
 @php
     // ── Auto-Detection (server-side, so there's no flash of the wrong UI state) ──
-    // Priority order: student_number, email, mobile, type, year, program, name.
+    // Priority order: student_number, email, mobile, block, type, year, program, name.
+    // "block" is checked before "type" and "program" so a header like "Block"
+    // or "Section" is never mistaken for another field.
     // "type" is checked before "program" so a header like "Program Type"
     // maps to program_type, not program.
+
+    // Required fields: the import cannot start until all of these are mapped.
     $requiredFields = [
         'student_number' => 'Student Number',
         'full_name'      => 'Full Name',
@@ -94,6 +98,7 @@
         if (str_contains($h, 'student number') || str_contains($h, 'student id') || str_contains($h, 'id number')) return 'student_number';
         if (str_contains($h, 'email')) return 'email';
         if (str_contains($h, 'mobile') || str_contains($h, 'contact') || str_contains($h, 'phone')) return 'mobile_number';
+        if (str_contains($h, 'block') || str_contains($h, 'section')) return 'block';
         if (str_contains($h, 'type')) return 'program_type';
         if (str_contains($h, 'year') || str_contains($h, 'level')) return 'year_level';
         if (str_contains($h, 'program') || str_contains($h, 'course')) return 'program';
@@ -106,7 +111,7 @@
     $usedIndexes = [];
 
     foreach ($headers as $index => $header) {
-        $fieldKey = $detectField($header);
+        $fieldKey = $detectField((string) $header);
         if (!$fieldKey) continue;
         if (isset($mapping[$fieldKey])) continue; // already filled by an earlier column
         if (in_array($index, $usedIndexes)) continue;
@@ -118,6 +123,10 @@
     $missingFields = array_diff_key($requiredFields, $mapping);
     $extraColumns  = array_values(array_diff_key($headers, array_flip($usedIndexes)));
     $allDetected   = empty($missingFields);
+
+    // Block is optional, so it is not counted in the required total.
+    $blockDetected  = isset($mapping['block']);
+    $requiredFound  = count(array_intersect_key($mapping, $requiredFields));
 @endphp
 
 <main class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -135,7 +144,7 @@
     <div>
         <p class="text-[11px] font-bold tracking-[0.2em] uppercase text-blue-500 mb-0.5">Coordinator</p>
         <h1 class="text-2xl font-extrabold text-slate-800 leading-tight">Confirm Import</h1>
-        <p class="text-sm text-slate-400 mt-0.5">{{ basename($filePath) }}</p>
+        <p class="text-sm text-slate-400 mt-0.5">{{ $originalFileName ?? basename($filePath) }}</p>
     </div>
 
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
@@ -175,21 +184,10 @@
     <form method="POST" action="{{ route('coordinator.students.import.process') }}" id="mapping-form" class="space-y-6">
         @csrf
 
-      @csrf
+        <input type="hidden" name="file_path" value="{{ $filePath }}">
+        <input type="hidden" name="original_file_name" value="{{ $originalFileName }}">
 
-<input
-    type="hidden"
-    name="file_path"
-    value="{{ $filePath }}"
->
-
-<input
-    type="hidden"
-    name="original_file_name"
-    value="{{ $originalFileName }}"
->
->
-        {{-- Hidden inputs for every field that was auto-detected — not shown to the coordinator --}}
+        {{-- Hidden inputs for every field that was auto-detected (not shown to the coordinator) --}}
         @foreach ($mapping as $fieldKey => $index)
             <input type="hidden" name="mapping[{{ $fieldKey }}]" value="{{ $index }}">
         @endforeach
@@ -223,6 +221,21 @@
                                 </span>
                             </div>
                         @endforeach
+
+                        @if ($blockDetected)
+                            <div class="flex items-center justify-between px-4 py-3 text-sm">
+                                <span class="font-bold text-slate-800">
+                                    Block <span class="text-xs font-normal text-slate-400">(optional)</span>
+                                </span>
+                                <span class="flex items-center gap-2 text-slate-500">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5">
+                                        <line x1="5" y1="12" x2="19" y2="12"/>
+                                        <polyline points="12 5 19 12 12 19"/>
+                                    </svg>
+                                    {{ $headers[$mapping['block']] }}
+                                </span>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -249,7 +262,7 @@
             <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
                 <h2 class="text-sm font-bold text-slate-800 tracking-tight mb-1">Confirm the Remaining Fields</h2>
                 <p class="text-xs text-slate-400 mb-4">
-                    {{ count($mapping) }} of {{ count($requiredFields) }} fields were detected automatically. Please confirm the rest below.
+                    {{ $requiredFound }} of {{ count($requiredFields) }} required fields were detected automatically. Please confirm the rest below.
                 </p>
 
                 <div class="space-y-3">
@@ -273,6 +286,44 @@
                 <p id="mapping-warning" class="text-xs font-semibold text-amber-600 mt-4" style="display:none;">
                     Please select a column for every field above before starting the import.
                 </p>
+            </div>
+        @endif
+
+        {{-- ── Block (optional) ── --}}
+        @if ($blockDetected)
+            @unless ($allDetected)
+                <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-sm">
+                    <span class="font-bold text-emerald-700">Block detected:</span>
+                    <span class="text-emerald-600">{{ $headers[$mapping['block']] }}</span>
+                </div>
+            @endunless
+        @else
+            <div class="bg-white rounded-2xl border border-amber-200 shadow-sm shadow-blue-50 p-6">
+                <div class="flex items-start gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0 mt-0.5">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <div class="flex-1">
+                        <p class="text-sm font-bold text-amber-700">No Block column detected</p>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Students are deployed by Program and Block. Without a block, these students can't be grouped by block in Deployments.
+                            If your file uses a different header for block, pick it below. Otherwise leave it as skipped.
+                        </p>
+
+                        <select name="mapping[block]" id="mapping_block"
+                                class="optional-select mt-3 w-full sm:w-72 px-3.5 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm text-slate-700 outline-none
+                                       transition-colors duration-150 focus:ring-2 focus:ring-blue-300 focus:border-blue-400">
+                            <option value="">— Skip (no block) —</option>
+                            @foreach ($headers as $index => $header)
+                                <option value="{{ $index }}" @if (in_array($index, $usedIndexes)) disabled @endif>
+                                    {{ $header }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
             </div>
         @endif
 
@@ -311,7 +362,7 @@
                 </div>
                 <div class="rounded-xl p-4 {{ $allDetected ? 'bg-emerald-50' : 'bg-amber-50' }}">
                     <p class="text-2xl font-extrabold {{ $allDetected ? 'text-emerald-700' : 'text-amber-700' }}">
-                        {{ count($mapping) }}/{{ count($requiredFields) }}
+                        {{ $requiredFound }}/{{ count($requiredFields) }}
                     </p>
                     <p class="text-xs font-semibold mt-1 {{ $allDetected ? 'text-emerald-600' : 'text-amber-600' }}">Required Columns Found</p>
                 </div>
@@ -386,6 +437,8 @@
 @if (!$allDetected)
 <script>
     (function () {
+        // Only the REQUIRED selects gate the import button.
+        // The optional Block select uses a different class and is never required.
         var selects = Array.prototype.slice.call(document.querySelectorAll('.fallback-select'));
 
         function updateDuplicateOptions() {

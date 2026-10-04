@@ -10,10 +10,8 @@ use Illuminate\Support\Facades\DB;
 class CoordinatorFieldStudyRequestController extends Controller
 {
     /**
-     * Display Field Study completion requests awaiting Coordinator approval.
-     *
-     * Only requests that are still pending AND have already been
-     * approved by the supervisor are shown here.
+     * Field Study completion requests awaiting Coordinator approval.
+     * Only requests that are still pending AND already approved by the supervisor.
      */
     public function index()
     {
@@ -27,11 +25,9 @@ class CoordinatorFieldStudyRequestController extends Controller
     }
 
     /**
-     * Coordinator approval — the final approval step.
-     *
-     * Only allowed when the request is still pending and the supervisor
-     * has already approved it. Marks the request approved and stamps
-     * the student's official Field Study completion timestamp.
+     * Coordinator approval, the final approval step.
+     * Completion goes through Student::markFieldStudyCompleted(), the same
+     * method the manual "complete" button uses.
      */
     public function approve(Request $request, FieldStudyRequest $fieldStudyRequest)
     {
@@ -53,20 +49,14 @@ class CoordinatorFieldStudyRequestController extends Controller
                 'status'               => 'approved',
             ]);
 
-            $fieldStudyRequest->student->update([
-                'field_study_completed_at' => now(),
-            ]);
+            $fieldStudyRequest->student->markFieldStudyCompleted();
         });
 
-        return back()->with('success', 'Field Study completion request approved. The student has been marked as completed.');
+        return back()->with('success', 'Field Study completion approved. The student can now submit initial Internship requirements.');
     }
 
     /**
      * Coordinator rejection.
-     *
-     * Does not touch the student's field_study_completed_at, and does
-     * not require prior supervisor approval — a coordinator can reject
-     * a request regardless of supervisor status, as long as it's pending.
      */
     public function reject(Request $request, FieldStudyRequest $fieldStudyRequest)
     {

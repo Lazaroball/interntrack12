@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Field Study Requirements – InternTrack</title>
+    <title>{{ $stage }} Requirements – InternTrack</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
@@ -18,7 +18,7 @@
     | 'url'    => null means the feature has no route yet (rendered disabled).
     | 'active' => evaluated against the current request.
     */
-    $onRequirements = request()->routeIs('student.field-study.requirements*');
+    $onRequirements = $stage === 'Field Study' && request()->routeIs('student.field-study.requirements*');
 
     $studentNav = [
         [
@@ -35,7 +35,7 @@
             'label'  => 'Field Study',
             'url'    => route('student.field-study'),
             // Requirements lives under the field-study prefix, so exclude it here
-            'active' => request()->routeIs('student.field-study*') && ! $onRequirements,
+            'active' => request()->routeIs('student.field-study*') && ! request()->routeIs('student.field-study.requirements*'),
         ],
         [
             'label'  => 'Select School',
@@ -49,10 +49,17 @@
         ],
         [
             'label'  => 'Internship',
-            'url'    => null,
-            'active' => false,
+            'url'    => $student->internship_status !== 'locked' ? route('student.internship.requirements') : null,
+            'active' => request()->routeIs('student.internship.*'),
         ],
     ];
+
+    // Stage-specific status + upload target
+    $stageStatus      = $stage === 'Internship' ? $student->internship_status : $student->field_study_status;
+    $stageStatusLabel = $stage === 'Internship' ? $student->internship_status_label : $student->field_study_status_label;
+    $storeRoute       = $stage === 'Internship'
+        ? route('student.internship.requirements.store')
+        : route('student.field-study.requirements.store');
 @endphp
 
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
@@ -162,16 +169,24 @@
     {{-- ── Header ── --}}
     <div class="flex items-center justify-between">
         <div>
-            <p class="text-[11px] font-bold tracking-[0.2em] uppercase text-blue-500 mb-0.5">Student</p>
-            <h1 class="text-2xl font-extrabold text-slate-800 leading-tight">Field Study Requirements</h1>
-            <p class="text-sm text-slate-400 mt-1">Submit and monitor your Field Study requirements here.</p>
+            <p class="text-[11px] font-bold tracking-[0.2em] uppercase text-blue-500 mb-0.5">Student · {{ $stage }}</p>
+            <h1 class="text-2xl font-extrabold text-slate-800 leading-tight">{{ $stage }} Requirements</h1>
+            <p class="text-sm text-slate-400 mt-1">Submit and monitor your {{ $stage }} requirements here.</p>
         </div>
 
-        <a href="{{ route('student.field-study') }}"
-           class="px-4 py-2 rounded-xl border-2 border-slate-200 hover:bg-slate-100 text-slate-600 text-sm font-semibold transition-colors duration-150 flex items-center gap-1.5 flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-            Back to Field Study
-        </a>
+        @if ($stage === 'Internship')
+            <a href="{{ route('student.dashboard') }}"
+               class="px-4 py-2 rounded-xl border-2 border-slate-200 hover:bg-slate-100 text-slate-600 text-sm font-semibold transition-colors duration-150 flex items-center gap-1.5 flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                Back to Dashboard
+            </a>
+        @else
+            <a href="{{ route('student.field-study') }}"
+               class="px-4 py-2 rounded-xl border-2 border-slate-200 hover:bg-slate-100 text-slate-600 text-sm font-semibold transition-colors duration-150 flex items-center gap-1.5 flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                Back to Field Study
+            </a>
+        @endif
     </div>
 
     {{-- ── Session Messages ── --}}
@@ -200,9 +215,9 @@
         </div>
     @endif
 
-    {{-- ── Field Study Status Banner ── --}}
+    {{-- ── Status Banner ── --}}
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
-        <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-2">Field Study Eligibility Status</h2>
+        <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-2">{{ $stage }} Eligibility Status</h2>
         @php
             $statusStyles = [
                 'pending_review'          => 'bg-slate-100 text-slate-600 ring-slate-200',
@@ -211,18 +226,32 @@
                 'accepted'                => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
                 'rejected'                => 'bg-red-50 text-red-600 ring-red-200',
             ];
-            $statusClass = $statusStyles[$student->field_study_status] ?? $statusStyles['pending_review'];
+            $statusClass = $statusStyles[$stageStatus] ?? $statusStyles['pending_review'];
         @endphp
         <span class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold ring-1 {{ $statusClass }}">
-            {{ $student->field_study_status_label }}
+            {{ $stageStatusLabel }}
         </span>
 
-        @if ($student->field_study_status === 'accepted')
-            <p class="text-sm text-emerald-600 font-semibold mt-3">Field Study access granted.</p>
-        @elseif ($student->field_study_status === 'requirements_approved')
-            <p class="text-sm text-slate-500 mt-3">All required documents are approved. Waiting for the coordinator to formally accept you into Field Study.</p>
+        @if ($stage === 'Internship')
+            @if ($stageStatus === 'accepted')
+                <p class="text-sm text-emerald-600 font-semibold mt-3">Internship access granted. You may now choose an Internship school.</p>
+                <a href="{{ route('student.deployment.select') }}"
+                   class="mt-3 inline-flex items-center px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors duration-150">
+                    Choose Internship School
+                </a>
+            @elseif ($stageStatus === 'rejected')
+                <p class="text-sm text-slate-500 mt-3">Your Internship requirements need correction. Resubmit the rejected documents.</p>
+            @else
+                <p class="text-sm text-slate-500 mt-3">Submit all initial Internship requirements below and wait for coordinator approval.</p>
+            @endif
         @else
-            <p class="text-sm text-slate-500 mt-3">Field Study is currently locked. Complete the required requirements below and wait for coordinator approval.</p>
+            @if ($stageStatus === 'accepted')
+                <p class="text-sm text-emerald-600 font-semibold mt-3">Field Study access granted.</p>
+            @elseif ($stageStatus === 'requirements_approved')
+                <p class="text-sm text-slate-500 mt-3">All required documents are approved. Waiting for the coordinator to formally accept you into Field Study.</p>
+            @else
+                <p class="text-sm text-slate-500 mt-3">Field Study is currently locked. Complete the required requirements below and wait for coordinator approval.</p>
+            @endif
         @endif
     </div>
 
@@ -236,7 +265,7 @@
             return $definition->phase === 'ongoing';
         })->values();
 
-        $isAccepted = $student->field_study_status === 'accepted';
+        $isAccepted = $stageStatus === 'accepted';
     @endphp
 
     {{-- ── Initial Requirements ── --}}
@@ -299,7 +328,7 @@
                         @endif
 
                         @if (!$submission || $submission->status === 'rejected')
-                            <form method="POST" action="{{ route('student.field-study.requirements.store') }}" enctype="multipart/form-data" class="flex items-center gap-2">
+                            <form method="POST" action="{{ $storeRoute }}" enctype="multipart/form-data" class="flex items-center gap-2">
                                 @csrf
                                 <input type="hidden" name="requirement_definition_id" value="{{ $definition->id }}">
                                 <input type="file" name="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required
@@ -381,7 +410,7 @@
                             @endif
 
                             @if (!$submission || $submission->status === 'rejected')
-                                <form method="POST" action="{{ route('student.field-study.requirements.store') }}" enctype="multipart/form-data" class="flex items-center gap-2">
+                                <form method="POST" action="{{ $storeRoute }}" enctype="multipart/form-data" class="flex items-center gap-2">
                                     @csrf
                                     <input type="hidden" name="requirement_definition_id" value="{{ $definition->id }}">
                                     <input type="file" name="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required

@@ -20,6 +20,15 @@
     $navFirstName = $student->first_name ?? explode(' ', trim($navFullName))[0];
 
     /*
+    | The controller does not pass $student, so fall back to the authenticated user's student record.
+    */
+    $navStudent         = $student ?? auth()->user()->student;
+    $internshipUnlocked = (bool) (optional($navStudent)->internship_status && $navStudent->internship_status !== 'locked');
+
+    // Label used for stage-specific text (Field Study or Internship)
+    $programLabel = $program ?? 'Field Study';
+
+    /*
     | Same navigation as the dashboard.
     */
     $onRequirements = request()->routeIs('student.field-study.requirements*');
@@ -52,8 +61,8 @@
         ],
         [
             'label'  => 'Internship',
-            'url'    => null,
-            'active' => false,
+            'url'    => $internshipUnlocked ? route('student.internship.requirements') : null,
+            'active' => request()->routeIs('student.internship.*'),
         ],
     ];
 @endphp
@@ -166,7 +175,7 @@
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 px-6 py-6">
         <p class="text-[11px] font-bold tracking-[0.2em] uppercase text-blue-500 mb-0.5">Student</p>
         <h1 class="text-2xl font-extrabold text-slate-800 leading-tight">Teaching Hours</h1>
-        <p class="text-sm text-slate-400 mt-1">Field Study attendance and rendered-hours tracking.</p>
+        <p class="text-sm text-slate-400 mt-1">{{ $programLabel }} attendance and rendered-hours tracking.</p>
     </div>
 
     {{-- ── Alerts ── --}}
@@ -196,9 +205,9 @@
                     <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
                 </svg>
             </div>
-            <h3 class="text-base font-bold text-slate-800 mb-1.5">No Field Study Deployment Yet</h3>
+            <h3 class="text-base font-bold text-slate-800 mb-1.5">No Active Deployment Yet</h3>
             <p class="text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
-                You don't have an approved Field Study deployment yet. Once your
+                You don't have an approved deployment yet. Once your
                 deployment has been set up and approved, you'll be able to record
                 your teaching hours here.
             </p>
@@ -213,10 +222,10 @@
         {{-- ── Progress + Time In/Out ── --}}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {{-- Field Study Progress --}}
+            {{-- Hours Progress --}}
             <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Field Study Hours</h2>
+                    <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide">{{ $programLabel }} Hours</h2>
                     <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-600 ring-1 ring-blue-200">
                         {{ $progressPercent }}%
                     </span>
@@ -254,7 +263,7 @@
                             <div>
                                 <p class="text-sm font-bold text-amber-700">Teaching hours are unavailable</p>
                                 <p class="text-xs text-amber-600 mt-0.5">
-                                    Your Field Study deployment needs to be approved before you can log teaching hours.
+                                    Your {{ $programLabel }} deployment needs to be approved before you can log teaching hours.
                                 </p>
                                 <a href="{{ route('student.deployment.select') }}"
                                    class="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-amber-700 hover:text-amber-800">
@@ -291,7 +300,7 @@
                                 <div>
                                     <p class="text-sm font-bold text-blue-700">Ready to start a session?</p>
                                     <p class="text-xs text-blue-600">
-                                        Record your Time In when you begin your Field Study activities.
+                                        Record your Time In when you begin your {{ $programLabel }} activities.
                                     </p>
                                 </div>
                             </div>
@@ -313,7 +322,14 @@
         {{-- ── Deployment Information ── --}}
         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 overflow-hidden">
             <div class="flex items-center justify-between px-6 py-4 bg-slate-50 border-b border-slate-100">
-                <h2 class="text-sm font-bold text-slate-800">Deployment Information</h2>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-sm font-bold text-slate-800">Deployment Information</h2>
+                    @if ($deployment->program)
+                        <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-slate-100 text-slate-600 border border-slate-200/50">
+                            {{ $deployment->program }}
+                        </span>
+                    @endif
+                </div>
                 @if ($canLogHours)
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold border border-emerald-100">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>

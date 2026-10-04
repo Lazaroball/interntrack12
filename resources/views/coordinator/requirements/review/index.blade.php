@@ -42,7 +42,7 @@
         <div>
             <p class="text-[11px] font-bold tracking-[0.2em] uppercase text-blue-500 mb-0.5">Coordinator</p>
             <h1 class="text-2xl font-extrabold text-slate-800 leading-tight">Requirement Review</h1>
-            <p class="text-sm text-slate-400 mt-0.5">Review student Field Study requirement submissions and manage eligibility.</p>
+            <p class="text-sm text-slate-400 mt-0.5">Review student {{ $stage }} requirement submissions and manage eligibility.</p>
         </div>
         <a href="{{ route('coordinator.requirements.definitions.index') }}"
            class="px-4 py-2 rounded-xl border-2 border-slate-200 hover:bg-slate-100 text-slate-600 text-sm font-semibold">
@@ -77,7 +77,8 @@
                     studentNumber: @js($student->student_number),
                     program: @js($student->program),
                     progress: @js($student->submission_progress),
-                    reviewUrl: @js(route('coordinator.requirements.review.show', $student)),
+                    statusLabel: @js($stage === 'Internship' ? $student->internship_status_label : $student->field_study_status_label),
+                    reviewUrl: @js(route('coordinator.requirements.review.show', ['student' => $student, 'stage' => $stage])),
                 },
                 @endforeach
             ],
@@ -113,6 +114,8 @@
                 <div class="min-w-[160px]">
                     <label class="block text-xs font-semibold text-slate-500 mb-1">Stage</label>
                     <select name="stage"
+                            x-data
+                            x-on:change="$el.form.elements['status'].value = ''; $el.form.requestSubmit()"
                             class="w-full px-3.5 py-2 rounded-xl border-2 border-slate-200 text-sm text-slate-700 outline-none
                                    transition-colors duration-150 focus:ring-2 focus:ring-blue-300 focus:border-blue-400">
                         <option value="Field Study" @selected(request('stage', 'Field Study') === 'Field Study')>Field Study</option>
@@ -133,16 +136,23 @@
                 </div>
 
                 <div class="min-w-[190px]">
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">Field Study Status</label>
-                    <select name="field_study_status"
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Status</label>
+                    <select name="status"
                             class="w-full px-3.5 py-2 rounded-xl border-2 border-slate-200 text-sm text-slate-700 outline-none
                                    transition-colors duration-150 focus:ring-2 focus:ring-blue-300 focus:border-blue-400">
                         <option value="">All Statuses</option>
-                        <option value="pending_review" @selected(request('field_study_status') === 'pending_review')>Pending Review</option>
-                        <option value="requirements_incomplete" @selected(request('field_study_status') === 'requirements_incomplete')>Requirements Incomplete</option>
-                        <option value="requirements_approved" @selected(request('field_study_status') === 'requirements_approved')>Requirements Approved</option>
-                        <option value="accepted" @selected(request('field_study_status') === 'accepted')>Accepted for Field Study</option>
-                        <option value="rejected" @selected(request('field_study_status') === 'rejected')>Rejected / Needs Correction</option>
+                        @if ($stage === 'Internship')
+                            <option value="pending_review" @selected(request('status') === 'pending_review')>Pending Review</option>
+                            <option value="requirements_incomplete" @selected(request('status') === 'requirements_incomplete')>Requirements Incomplete</option>
+                            <option value="accepted" @selected(request('status') === 'accepted')>Accepted for Internship</option>
+                            <option value="rejected" @selected(request('status') === 'rejected')>Rejected / Needs Correction</option>
+                        @else
+                            <option value="pending_review" @selected(request('status') === 'pending_review')>Pending Review</option>
+                            <option value="requirements_incomplete" @selected(request('status') === 'requirements_incomplete')>Requirements Incomplete</option>
+                            <option value="requirements_approved" @selected(request('status') === 'requirements_approved')>Requirements Approved</option>
+                            <option value="accepted" @selected(request('status') === 'accepted')>Accepted for Field Study</option>
+                            <option value="rejected" @selected(request('status') === 'rejected')>Rejected / Needs Correction</option>
+                        @endif
                     </select>
                 </div>
 
@@ -151,7 +161,7 @@
                             class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors duration-150">
                         Filter
                     </button>
-                    @if (request()->filled('program') || request()->filled('field_study_status') || (request()->filled('stage') && request('stage') !== 'Field Study'))
+                    @if (request()->filled('program') || request()->filled('status') || (request()->filled('stage') && request('stage') !== 'Field Study'))
                         <a href="{{ route('coordinator.requirements.review.index') }}"
                            class="px-4 py-2 rounded-xl border-2 border-slate-200 hover:bg-slate-100 text-slate-600 text-sm font-semibold transition-colors duration-150">
                             Clear
@@ -185,7 +195,7 @@
                                     <td class="px-4 py-3 font-semibold text-slate-800" x-text="student.name"></td>
                                     <td class="px-4 py-3 font-mono text-slate-600" x-text="student.studentNumber || '—'"></td>
                                     <td class="px-4 py-3 text-slate-600" x-text="student.program || '—'"></td>
-                                    <td class="px-4 py-3 text-slate-400" x-text="'—'"></td>
+                                    <td class="px-4 py-3 text-slate-600" x-text="student.statusLabel"></td>
                                     <td class="px-4 py-3">
                                         <template x-if="student.progress === 'grey'">
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">Pending Review</span>

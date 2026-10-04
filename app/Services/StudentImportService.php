@@ -11,61 +11,77 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use App\Services\ExcelMappingService;
+
 class StudentImportService
 {
     /**
      * Import students from an uploaded Excel/CSV master list.
      *
-     * Expected columns (in order, header row required):
-     * Student Number | Full Name | Email | Mobile Number | Program | Year Level | Program Type
+     * Expected columns (header row required, order does not matter):
+     * Student Number | Full Name | Email | Mobile Number | Program | Year Level | Program Type | Block (optional)
      */
-  public function import(
-    string $filePath,
-    int $importedById,
-    array $mapping,
-    ?string $originalFileName = null
-): array
-{
-    $spreadsheet = IOFactory::load($filePath);
-    $sheet = $spreadsheet->getActiveSheet();
-    $rows = $sheet->toArray(null, true, true, false);
+    public function import(
+        string $filePath,
+        int $importedById,
+        array $mapping,
+        ?string $originalFileName = null
+    ): array {
+        $spreadsheet = IOFactory::load($filePath);
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray(null, true, true, false);
 
-    // First row is the header
-    array_shift($rows);
+        // First row is the header
+        array_shift($rows);
 
-    $successCount = 0;
-    $failedCount = 0;
-    $duplicateCount = 0;
-    $totalCount = 0;
+        $successCount   = 0;
+        $failedCount    = 0;
+        $duplicateCount = 0;
+        $totalCount     = 0;
 
-    foreach ($rows as $row) {
-        // Skip fully blank rows
-        if (
-            collect($row)
-                ->filter(fn ($v) => trim((string) $v) !== '')
-                ->isEmpty()
-        ) {
-            continue;
-        }
+        foreach ($rows as $row) {
+            // Skip fully blank rows
+            if (
+                collect($row)
+                    ->filter(fn ($v) => trim((string) $v) !== '')
+                    ->isEmpty()
+            ) {
+                continue;
+            }
 
-        $totalCount++;
+            $totalCount++;
 
-        $studentNumber = trim((string) ($row[$mapping['student_number']] ?? ''));
-        $fullName      = trim((string) ($row[$mapping['full_name']] ?? ''));
-        $email         = trim((string) ($row[$mapping['email']] ?? ''));
-        $mobileNumber  = trim((string) ($row[$mapping['mobile_number']] ?? ''));
-        $program       = trim((string) ($row[$mapping['program']] ?? ''));
-        $yearLevel     = trim((string) ($row[$mapping['year_level']] ?? ''));
-        $programType   = trim((string) ($row[$mapping['program_type']] ?? ''));
+            $studentNumber = trim((string) ($row[$mapping['student_number']] ?? ''));
+            $fullName      = trim((string) ($row[$mapping['full_name']] ?? ''));
+            $email         = trim((string) ($row[$mapping['email']] ?? ''));
+            $mobileNumber  = $this->normalizeMobile((string) ($row[$mapping['mobile_number']] ?? ''));
+            $program       = trim((string) ($row[$mapping['program']] ?? ''));
+            $yearLevel     = trim((string) ($row[$mapping['year_level']] ?? ''));
+            $programType   = trim((string) ($row[$mapping['program_type']] ?? ''));
+
+            // Block is optional: only read it if the column was mapped
+            $block = null;
+            if (isset($mapping['block']) && $mapping['block'] !== '') {
+                $block = strtoupper(trim((string) ($row[$mapping['block']] ?? '')));
+                $block = $block !== '' ? $block : null;
+            }
+
+            // Normalize so filters/grouping don't split BSED / BSEd / bsed
+            $program     = strtoupper($program);
+            $programType = ucwords(strtolower($programType)); // "field study" -> "Field Study"
 
             if ($studentNumber === '' || $fullName === '' || $email === '') {
                 $failedCount++;
                 continue;
             }
 
-            // Skip duplicates (existing student_number)
-            if (Student::where('student_number', $studentNumber)->exists()) {
+            // Existing student: skip, but backfill block if it is currently empty
+            $existing = Student::where('student_number', $studentNumber)->first();
+
+            if ($existing) {
+                if ($block && blank($existing->block)) {
+                    $existing->update(['block' => $block]);
+                }
+
                 $duplicateCount++;
                 continue;
             }
@@ -73,11 +89,18 @@ class StudentImportService
             [$firstName, $middleName, $lastName] = $this->parseFullName($fullName);
             $password = $this->generatePassword($lastName, $studentNumber);
 
+            // Students imported as "Internship" skip the Field Study stage, so
+            // their Internship is unlocked for initial requirements review.
+            // Everyone else stays locked until Field Study is completed.
+            $internshipStatus = $programType === 'Internship'
+                ? 'pending_review'
+                : 'locked';
+
             try {
                 DB::transaction(function () use (
                     $studentNumber, $firstName, $middleName, $lastName,
                     $email, $mobileNumber, $program, $programType, $yearLevel,
-                    $password
+                    $block, $password, $internshipStatus
                 ) {
                     $user = User::create([
                         'name'                 => trim("{$firstName} {$lastName}"),
@@ -93,27 +116,29 @@ class StudentImportService
                     ]);
 
                     $student = Student::create([
-                    'user_id' => $user->id,
-                    'student_number' => $studentNumber,
-                    'reference_number' => $studentNumber,
-                    'email' => $email,
-                    'mobile_number' => $mobileNumber,
-                    'first_name' => $firstName,
-                    'middle_name' => $middleName,
-                    'last_name' => $lastName,
-                    'program' => $program,
-                    'program_type' => $programType,
-                    'year_level' => $yearLevel,
-                    'field_study_hours' => 0,
-                    'internship_hours' => 0,
-                    'is_eligible' => false,
-                    'status' => 'inactive',
-                    'is_imported' => true,
-                    'is_late_enrollee' => false,
-                    'registration_status' => 'accepted',
-]);
+                        'user_id'             => $user->id,
+                        'student_number'      => $studentNumber,
+                        'reference_number'    => $studentNumber,
+                        'email'               => $email,
+                        'mobile_number'       => $mobileNumber,
+                        'first_name'          => $firstName,
+                        'middle_name'         => $middleName,
+                        'last_name'           => $lastName,
+                        'program'             => $program,
+                        'program_type'        => $programType,
+                        'year_level'          => $yearLevel,
+                        'block'               => $block,
+                        'field_study_hours'   => 0,
+                        'internship_hours'    => 0,
+                        'is_eligible'         => false,
+                        'internship_status'   => $internshipStatus,
+                        'status'              => 'inactive',
+                        'is_imported'         => true,
+                        'is_late_enrollee'    => false,
+                        'registration_status' => 'accepted',
+                    ]);
 
-                    // Send credentials — failure to email doesn't roll back account creation
+                    // Send credentials. A mail failure doesn't roll back account creation.
                     try {
                         Mail::to($email)->queue(new StudentAccountCredentials($student, $password));
                     } catch (\Throwable $mailException) {
@@ -128,18 +153,14 @@ class StudentImportService
             }
         }
 
-        // Persist the import record. The `imports` table only tracks
-        // total/successful/failed, so duplicates are folded into failed
-        // for storage (total = successful + failed) while still being
-        // reported separately in the returned summary below.
-Import::create([
-    'file_name' => $originalFileName ?? basename($filePath),
-    'imported_by'        => $importedById,
-    'total_records'      => $totalCount,
-    'successful_records' => $successCount,
-    'failed_records'     => $failedCount,
-    'duplicate_records'  => $duplicateCount,
-]);
+        Import::create([
+            'file_name'          => $originalFileName ?? basename($filePath),
+            'imported_by'        => $importedById,
+            'total_records'      => $totalCount,
+            'successful_records' => $successCount,
+            'failed_records'     => $failedCount,
+            'duplicate_records'  => $duplicateCount,
+        ]);
 
         return [
             'total'     => $totalCount,
@@ -155,7 +176,7 @@ Import::create([
     private function parseFullName(string $fullName): array
     {
         if (! str_contains($fullName, ',')) {
-            // Fallback: no comma — treat whole string as first name
+            // Fallback: no comma, treat whole string as first name
             return [ucwords(strtolower($fullName)), '', ''];
         }
 
@@ -171,8 +192,31 @@ Import::create([
     }
 
     /**
+     * Restore the leading zero Excel drops from PH mobile numbers.
+     * 9176433012 -> 09176433012, +639176433012 -> 09176433012
+     */
+    private function normalizeMobile(string $mobile): string
+    {
+        $digits = preg_replace('/\D+/', '', $mobile);
+
+        if ($digits === '') {
+            return '';
+        }
+
+        if (strlen($digits) === 12 && str_starts_with($digits, '63')) {
+            return '0' . substr($digits, 2);
+        }
+
+        if (strlen($digits) === 10 && str_starts_with($digits, '9')) {
+            return '0' . $digits;
+        }
+
+        return $digits;
+    }
+
+    /**
      * Password = uppercase last name + last 4 digits of student number.
-     * e.g. Costales / 20231168 → COSTALES1168
+     * e.g. Costales / 20231168 -> COSTALES1168
      */
     private function generatePassword(string $lastName, string $studentNumber): string
     {
