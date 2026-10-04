@@ -1,27 +1,29 @@
-{{-- resources/views/student/field-study/index.blade.php --}}
+{{-- resources/views/student/internship/index.blade.php --}}
 
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Field Study Overview – InternTrack</title>
+    <title>Internship Overview – InternTrack</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>[x-cloak] { display: none !important; }</style>
 </head>
 
 @php
-    $internshipUnlocked = $internshipUnlocked ?? (bool) $student->is_internship_unlocked;
-
-    $clearanceTones = [
-        'none'                => 'bg-slate-50 border-slate-200 text-slate-600',
-        'waiting_supervisor'  => 'bg-amber-50 border-amber-200 text-amber-700',
-        'waiting_coordinator' => 'bg-blue-50 border-blue-200 text-blue-700',
-        'cleared'             => 'bg-emerald-50 border-emerald-200 text-emerald-700',
-        'rejected'            => 'bg-red-50 border-red-200 text-red-600',
+    $toneClasses = [
+        'success' => 'bg-emerald-50 border-emerald-200 text-emerald-700',
+        'action'  => 'bg-blue-50 border-blue-200 text-blue-700',
+        'waiting' => 'bg-amber-50 border-amber-200 text-amber-700',
     ];
-    $clearanceTone = $clearanceTones[$clearance['state']] ?? $clearanceTones['none'];
+    $tone = $toneClasses[$nextStep['tone']] ?? $toneClasses['action'];
+
+    $deploymentBadge = [
+        'completed' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+        'deployed'  => 'bg-blue-50 text-blue-700 ring-blue-200',
+        'pending'   => 'bg-amber-50 text-amber-700 ring-amber-200',
+    ];
 @endphp
 
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
@@ -34,14 +36,13 @@
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
             <p class="text-[11px] font-bold tracking-[0.2em] uppercase text-blue-500 mb-0.5">Student</p>
-            <h1 class="text-2xl font-extrabold text-slate-800 leading-tight">Field Study Overview</h1>
-            <p class="text-sm text-slate-400 mt-1">Track your Field Study requirements, deployment, and progress.</p>
+            <h1 class="text-2xl font-extrabold text-slate-800 leading-tight">Internship Overview</h1>
+            <p class="text-sm text-slate-400 mt-1">Track your Internship requirements, deployment, attendance and final decision.</p>
         </div>
 
-        @include('student.partials.stage-tabs', ['section' => 'overview', 'activeStage' => 'Field Study'])
+        @include('student.partials.stage-tabs', ['section' => 'overview', 'activeStage' => 'Internship'])
     </div>
 
-    {{-- ── Session Messages ── --}}
     @if (session('success'))
         <div class="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-semibold">
             {{ session('success') }}
@@ -54,82 +55,49 @@
         </div>
     @endif
 
-    {{-- Locked banner: hidden once Field Study is accepted, completed, or Internship is unlocked --}}
-    @if ($student->field_study_status !== 'accepted' && ! $student->has_completed_field_study && ! $internshipUnlocked)
-        <div class="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-amber-50 border border-amber-200">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <div>
-                <p class="text-sm font-bold text-amber-700">Field Study is currently locked.</p>
-                <p class="text-xs text-amber-600 mt-0.5">
-                    Complete the required requirements and wait for coordinator approval.
-                    <a href="{{ route('student.field-study.requirements') }}" class="underline font-semibold">View Requirements</a>
-                </p>
-            </div>
-        </div>
-    @endif
-
-    {{-- Completed banner --}}
-    @if ($student->has_completed_field_study)
-        <div class="flex items-start gap-3 px-4 py-3.5 rounded-xl bg-emerald-50 border border-emerald-200">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 flex-shrink-0 mt-0.5"><polyline points="20 6 9 17 4 12"/></svg>
-            <div>
-                <p class="text-sm font-bold text-emerald-700">Field Study completed</p>
-                <p class="text-xs text-emerald-600 mt-0.5">
-                    Completed on {{ $student->field_study_completed_at->format('F j, Y') }}.
-                    @if ($internshipUnlocked)
-                        <a href="{{ route('student.internship.requirements') }}" class="underline font-semibold">Go to Internship Requirements</a>
-                    @endif
-                </p>
-            </div>
-        </div>
-    @endif
-
-    {{-- ── Clearance ── --}}
-    <div class="rounded-2xl border p-5 {{ $clearanceTone }}">
+    {{-- ── Next step ── --}}
+    <div class="rounded-2xl border p-5 {{ $tone }}">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
-                <p class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Field Study clearance</p>
-                <p class="text-base font-extrabold">{{ $clearance['title'] }}</p>
-                <p class="text-sm mt-1 opacity-90 max-w-2xl">{{ $clearance['body'] }}</p>
-                @if (! empty($clearance['requested_hours']))
-                    <p class="text-xs font-semibold mt-1 opacity-80">Requested hours: {{ $clearance['requested_hours'] }}</p>
-                @endif
+                <p class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Next step</p>
+                <p class="text-base font-extrabold">{{ $nextStep['title'] }}</p>
+                <p class="text-sm mt-1 opacity-90 max-w-2xl">{{ $nextStep['body'] }}</p>
             </div>
 
-            @if ($clearance['state'] === 'cleared' && $internshipUnlocked)
-                <a href="{{ route('student.internship') }}"
+            @if ($nextStep['url'])
+                <a href="{{ $nextStep['url'] }}"
                    class="inline-flex items-center px-4 py-2 rounded-xl bg-white/80 hover:bg-white text-sm font-semibold shadow-sm transition-colors duration-150 flex-shrink-0">
-                    Go to Internship
+                    {{ $nextStep['label'] }}
                 </a>
             @endif
         </div>
     </div>
 
-    {{-- ── Field Study Progress ── --}}
+    {{-- ── Internship Progress ── --}}
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
         <div class="flex items-center justify-between mb-4">
-            <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Field Study Progress</h2>
+            <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Internship Progress</h2>
             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-600 ring-1 ring-blue-200">
-                {{ $fieldStudyProgress['progress_percent'] }}%
+                {{ $internshipProgress['progress_percent'] }}%
             </span>
         </div>
 
         <div class="flex items-end justify-between mb-2">
             <span class="text-2xl font-extrabold text-slate-800">
-                {{ $fieldStudyProgress['completed_hours'] }} / {{ $fieldStudyProgress['required_hours'] }} hrs
+                {{ $internshipProgress['completed_hours'] }} / {{ $internshipProgress['required_hours'] }} hrs
             </span>
             <span class="text-sm text-slate-400">
-                {{ $fieldStudyProgress['remaining_hours'] }} hrs remaining
+                {{ $internshipProgress['remaining_hours'] }} hrs remaining
             </span>
         </div>
 
         <div class="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden">
             <div class="h-full rounded-full bg-blue-600 transition-all duration-500"
-                 style="width: {{ $fieldStudyProgress['progress_percent'] }}%"></div>
+                 style="width: {{ $internshipProgress['progress_percent'] }}%"></div>
         </div>
 
-        @if ($fieldStudyProgress['progress_percent'] >= 100)
-            <p class="text-xs font-semibold text-emerald-600 mt-3">Requirement reached.</p>
+        @if ($internshipProgress['progress_percent'] >= 100)
+            <p class="text-xs font-semibold text-emerald-600 mt-3">Required hours reached.</p>
         @endif
     </div>
 
@@ -147,10 +115,6 @@
                         <div class="flex items-center justify-between">
                             <span class="font-semibold text-slate-500">Partner School</span>
                             <span class="font-semibold text-slate-800">{{ $deploymentInfo['partner_school'] ?? '—' }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="font-semibold text-slate-500">Program</span>
-                            <span class="text-slate-700">{{ $deploymentInfo['program'] ?? '—' }}</span>
                         </div>
                         <div class="flex items-center justify-between">
                             <span class="font-semibold text-slate-500">School Year</span>
@@ -174,11 +138,9 @@
                         </div>
                         <div class="flex items-center justify-between">
                             <span class="font-semibold text-slate-500">Status</span>
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ring-1 capitalize
-                                {{ ($deploymentInfo['status'] ?? null) === 'completed'
-                                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-                                    : 'bg-blue-50 text-blue-700 ring-blue-200' }}">
-                                {{ $deploymentInfo['status'] ?? '—' }}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ring-1
+                                {{ $deploymentBadge[$deploymentInfo['status_key']] ?? $deploymentBadge['pending'] }}">
+                                {{ $deploymentInfo['status_label'] }}
                             </span>
                         </div>
                         @if (!empty($deploymentInfo['remarks']))
@@ -189,7 +151,7 @@
                         @endif
                     </div>
                 @else
-                    <p class="text-sm text-slate-400 italic">No deployment has been assigned yet.</p>
+                    <p class="text-sm text-slate-400 italic">No Internship school has been chosen yet.</p>
                 @endif
             </div>
         </div>
@@ -205,15 +167,15 @@
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
                         <div class="bg-slate-50 rounded-xl p-3 text-center">
                             <p class="text-xl font-extrabold text-slate-700">{{ $requirementsSummary['total'] }}</p>
-                            <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Total</p>
+                            <p class="text-[11px] font-semibold text-slate-500 mt-0.5">Submitted</p>
                         </div>
                         <div class="bg-emerald-50 rounded-xl p-3 text-center">
                             <p class="text-xl font-extrabold text-emerald-700">{{ $requirementsSummary['approved'] }}</p>
                             <p class="text-[11px] font-semibold text-emerald-600 mt-0.5">Approved</p>
                         </div>
-                        <div class="bg-amber-50 rounded-xl p-3 text-center">
-                            <p class="text-xl font-extrabold text-amber-700">{{ $requirementsSummary['pending'] }}</p>
-                            <p class="text-[11px] font-semibold text-amber-600 mt-0.5">Pending</p>
+                        <div class="bg-blue-50 rounded-xl p-3 text-center">
+                            <p class="text-xl font-extrabold text-blue-700">{{ $requirementsSummary['pending'] }}</p>
+                            <p class="text-[11px] font-semibold text-blue-600 mt-0.5">In Review</p>
                         </div>
                         <div class="bg-red-50 rounded-xl p-3 text-center">
                             <p class="text-xl font-extrabold text-red-600">{{ $requirementsSummary['rejected'] }}</p>
@@ -221,30 +183,70 @@
                         </div>
                     </div>
 
+                    @if ($requirementsSummary['required_total'] > 0)
+                        <p class="text-xs font-semibold text-slate-500 mb-3">
+                            Required documents approved:
+                            <span class="text-slate-800">{{ $requirementsSummary['required_approved'] }} of {{ $requirementsSummary['required_total'] }}</span>
+                        </p>
+                    @endif
+
                     <div class="divide-y divide-slate-50">
                         @foreach ($recentRequirements as $requirement)
                             <div class="flex items-center justify-between py-2.5 text-sm">
                                 <span class="font-medium text-slate-700">{{ $requirement->requirementDefinition->name ?? $requirement->requirement_name ?? 'Requirement' }}</span>
-                                <span class="text-xs font-semibold text-slate-500 capitalize">{{ $requirement->status }}</span>
+                                <span class="text-xs font-semibold text-slate-500">{{ $requirement->status_label }}</span>
                             </div>
                         @endforeach
                     </div>
-
-                    <a href="{{ route('student.field-study.requirements') }}"
-                       class="inline-block mt-3 text-blue-600 hover:text-blue-700 font-semibold text-xs">
-                        View all requirements
-                    </a>
                 @else
-                    <p class="text-sm text-slate-400 italic">No requirements submitted yet.</p>
+                    <p class="text-sm text-slate-400 italic">No Internship requirements submitted yet.</p>
                 @endif
+
+                <a href="{{ route('student.internship.requirements') }}"
+                   class="inline-block mt-3 text-blue-600 hover:text-blue-700 font-semibold text-xs">
+                    Open Internship requirements
+                </a>
             </div>
         </div>
     </div>
 
-    {{-- ── Teaching Hours / Attendance ── --}}
+    {{-- ── Final Decision ── --}}
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 overflow-hidden">
         <div class="px-6 py-4 bg-slate-50 border-b border-slate-100">
+            <h2 class="text-sm font-bold text-slate-800">Final Decision</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Your Internship is complete only when both your coordinator and your supervisor have passed you.</p>
+        </div>
+
+        <div class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            @foreach ([
+                'Coordinator' => $finalDecision['coordinator'],
+                'Supervisor'  => $finalDecision['supervisor'],
+            ] as $who => $passedAt)
+                <div class="flex items-center justify-between rounded-xl border px-4 py-3
+                            {{ $passedAt ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100 bg-slate-50' }}">
+                    <span class="text-sm font-semibold {{ $passedAt ? 'text-emerald-700' : 'text-slate-600' }}">{{ $who }}</span>
+                    @if ($passedAt)
+                        <span class="text-xs font-semibold text-emerald-700">Passed &middot; {{ $passedAt->format('M d, Y') }}</span>
+                    @else
+                        <span class="text-xs font-semibold text-slate-400">Pending</span>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+
+        @if ($finalDecision['completed'])
+            <div class="px-6 pb-6">
+                <p class="text-sm font-bold text-emerald-700">Internship completed on {{ $finalDecision['completed']->format('F j, Y') }}.</p>
+            </div>
+        @endif
+    </div>
+
+    {{-- ── Teaching Hours / Attendance ── --}}
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 bg-slate-50 border-b border-slate-100">
             <h2 class="text-sm font-bold text-slate-800">Teaching Hours / Attendance</h2>
+            <a href="{{ route('student.teaching-hours', ['stage' => 'Internship']) }}"
+               class="text-xs font-semibold text-blue-600 hover:text-blue-700">Open Teaching Hours</a>
         </div>
 
         <div class="p-6">
@@ -294,8 +296,8 @@
                                     <td class="px-3 py-2 text-slate-600 whitespace-nowrap">
                                         {{ number_format($log->hours_rendered, 2) }}
                                     </td>
-                                    <td class="px-3 py-2 text-slate-600 whitespace-nowrap capitalize">
-                                        {{ $log->status }}
+                                    <td class="px-3 py-2 text-slate-600 whitespace-nowrap">
+                                        {{ $log->status === 'in_progress' ? 'In Progress' : 'Completed' }}
                                     </td>
                                 </tr>
                             @endforeach
@@ -303,7 +305,7 @@
                     </table>
                 </div>
             @else
-                <p class="text-sm text-slate-400 italic">No daily logs recorded yet.</p>
+                <p class="text-sm text-slate-400 italic">No Internship attendance recorded yet.</p>
             @endif
         </div>
     </div>

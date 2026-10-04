@@ -58,61 +58,8 @@
 
 <body class="min-h-screen bg-slate-50/50 text-slate-900 antialiased selection:bg-blue-500 selection:text-white">
 
-{{-- Navigation --}}
-<header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm" x-data="{ mobileOpen: false }">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-md shadow-blue-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-5.5 h-5.5">
-                        <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
-                        <path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
-                    </svg>
-                </div>
-                <div>
-                    <span class="text-base font-black text-slate-800 tracking-tight block">InternTrack</span>
-                    <span class="text-[9px] font-bold text-blue-600 tracking-widest uppercase block -mt-1">UCU · CTE</span>
-                </div>
-            </div>
 
-            {{-- Desktop nav --}}
-            <nav class="hidden md:flex items-center gap-1" aria-label="Coordinator navigation">
-                @foreach ($coordinatorNav as $item)
-                    <a href="{{ $item['url'] }}"
-                       @if ($item['active']) aria-current="page" @endif
-                       class="px-3.5 py-1.5 rounded-lg text-sm transition
-                              {{ $item['active']
-                                    ? 'font-semibold text-blue-600 bg-blue-50/80'
-                                    : 'font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50' }}">
-                        {{ $item['label'] }}
-                    </a>
-                @endforeach
-            </nav>
-
-            {{-- Mobile menu toggle --}}
-            <button type="button" @click="mobileOpen = !mobileOpen"
-                    class="md:hidden w-9 h-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:bg-blue-50 hover:text-blue-600 transition"
-                    aria-label="Toggle menu">
-                <svg x-show="!mobileOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                <svg x-show="mobileOpen" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-        </div>
-
-        {{-- Mobile nav panel --}}
-        <div x-show="mobileOpen" x-cloak x-transition class="md:hidden pb-4 space-y-1">
-            @foreach ($coordinatorNav as $item)
-                <a href="{{ $item['url'] }}"
-                   @if ($item['active']) aria-current="page" @endif
-                   class="block px-3.5 py-2 rounded-lg text-sm
-                          {{ $item['active']
-                                ? 'font-semibold text-blue-600 bg-blue-50/80'
-                                : 'font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-50' }}">
-                    {{ $item['label'] }}
-                </a>
-            @endforeach
-        </div>
-    </div>
-</header>
+@include('coordinator.partials.navbar')
 
 <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 

@@ -11,30 +11,7 @@
 
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
 
-<header class="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm shadow-blue-50">
-    <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow shadow-blue-200 flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-5 h-5">
-                        <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
-                        <path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
-                    </svg>
-                </div>
-                <div class="leading-tight">
-                    <span class="text-base font-extrabold text-slate-800 tracking-tight">InternTrack</span>
-                    <span class="hidden sm:block text-[10px] font-semibold text-blue-500 tracking-widest uppercase -mt-0.5">UCU · CTE</span>
-                </div>
-            </div>
-            <nav class="hidden md:flex items-center gap-1" aria-label="Coordinator navigation">
-                <a href="{{ route('coordinator.dashboard') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Dashboard</a>
-                <a href="{{ route('coordinator.students.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Students</a>
-                <a href="{{ route('coordinator.deployments.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">Deployments</a>
-                <a href="{{ route('coordinator.requirements.review.index') }}" class="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white bg-blue-600">Requirements</a>
-            </nav>
-        </div>
-    </div>
-</header>
+@include('coordinator.partials.navbar')
 
 <main class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
 
@@ -77,6 +54,8 @@
                     studentNumber: @js($student->student_number),
                     program: @js($student->program),
                     progress: @js($student->submission_progress),
+                    toReview: @js($student->to_review_count),
+                    resubmitted: @js($student->resubmitted_count),
                     statusLabel: @js($stage === 'Internship' ? $student->internship_status_label : $student->field_study_status_label),
                     reviewUrl: @js(route('coordinator.requirements.review.show', ['student' => $student, 'stage' => $stage])),
                 },
@@ -197,18 +176,29 @@
                                     <td class="px-4 py-3 text-slate-600" x-text="student.program || '—'"></td>
                                     <td class="px-4 py-3 text-slate-600" x-text="student.statusLabel"></td>
                                     <td class="px-4 py-3">
-                                        <template x-if="student.progress === 'grey'">
-                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">Pending Review</span>
-                                        </template>
-                                        <template x-if="student.progress === 'orange'">
-                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">Partial</span>
-                                        </template>
-                                        <template x-if="student.progress === 'green'">
-                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Complete</span>
-                                        </template>
-                                        <template x-if="student.progress === 'none'">
-                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">—</span>
-                                        </template>
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            <template x-if="student.progress === 'grey'">
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">Not Submitted</span>
+                                            </template>
+                                            <template x-if="student.progress === 'orange'">
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">Partial</span>
+                                            </template>
+                                            <template x-if="student.progress === 'green'">
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">All Submitted</span>
+                                            </template>
+                                            <template x-if="student.progress === 'none'">
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">—</span>
+                                            </template>
+
+                                            <template x-if="student.resubmitted > 0">
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-violet-100 text-violet-700"
+                                                      x-text="student.resubmitted + ' Resubmitted'"></span>
+                                            </template>
+                                            <template x-if="student.toReview > 0">
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"
+                                                      x-text="student.toReview + ' to review'"></span>
+                                            </template>
+                                        </div>
                                     </td>
                                     <td class="px-4 py-3 text-right">
                                         <a class="text-blue-600 hover:text-blue-700 font-semibold text-xs" :href="student.reviewUrl">Review</a>

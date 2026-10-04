@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
 use App\Models\DailyLog;
+use App\Models\FieldStudyRequest;
 use App\Models\Requirement;
 use App\Models\Student;
 use Illuminate\Contracts\View\View;
@@ -104,6 +105,69 @@ class FieldStudyController extends Controller
 
             'dailyLogSummary' => $dailyLogSummary,
             'recentDailyLogs' => $recentDailyLogs,
+
+            'clearance'          => $this->clearanceState($student),
+            'internshipUnlocked' => (bool) $student->is_internship_unlocked,
         ]);
+    }
+
+    /**
+     * Where is the student in the Field Study clearance flow?
+     *
+     * state: none | waiting_supervisor | waiting_coordinator | cleared | rejected
+     *
+     * "cleared" is decided ONLY by students.field_study_completed_at.
+     *
+     * @return array{state:string,title:string,body:string,requested_hours:?int}
+     */
+    private function clearanceState(Student $student): array
+    {
+        if ($student->field_study_completed_at) {
+            return [
+                'state'           => 'cleared',
+                'title'           => 'Field Study cleared',
+                'body'            => 'Your coordinator cleared your Field Study on '
+                                        . $student->field_study_completed_at->format('F j, Y') . '.',
+                'requested_hours' => null,
+            ];
+        }
+
+        $request = FieldStudyRequest::where('student_id', $student->id)
+            ->latest('id')
+            ->first();
+
+        if (! $request) {
+            return [
+                'state'           => 'none',
+                'title'           => 'No clearance request yet',
+                'body'            => 'You have not requested Field Study clearance. Request it once you have completed your hours.',
+                'requested_hours' => null,
+            ];
+        }
+
+        if (strtolower((string) $request->status) === 'rejected') {
+            return [
+                'state'           => 'rejected',
+                'title'           => 'Clearance request rejected',
+                'body'            => 'Your last clearance request was rejected. Check with your supervisor or coordinator, then request again.',
+                'requested_hours' => $request->requested_hours,
+            ];
+        }
+
+        if (! $request->supervisor_approval) {
+            return [
+                'state'           => 'waiting_supervisor',
+                'title'           => 'Waiting for your supervisor',
+                'body'            => 'Your clearance request was sent. Your supervisor has to approve it first.',
+                'requested_hours' => $request->requested_hours,
+            ];
+        }
+
+        return [
+            'state'           => 'waiting_coordinator',
+            'title'           => 'Waiting for your coordinator',
+            'body'            => 'Your supervisor approved your request. Your coordinator still has to clear your Field Study.',
+            'requested_hours' => $request->requested_hours,
+        ];
     }
 }

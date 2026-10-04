@@ -14,11 +14,8 @@ class RequirementController extends Controller
 {
     private const STAGES = ['Field Study', 'Internship'];
 
-    /**
-     * Resolve the stage for index(). The Internship routes pass it as a
-     * route default; anything else falls back to Field Study so the
-     * existing Field Study URLs keep working.
-     */
+    private const INTERNSHIP_LOCKED_MESSAGE = 'Internship unlocks after the coordinator clears your Field Study.';
+
     private function resolveStage(Request $request): string
     {
         $stage = $request->route('stage') ?? 'Field Study';
@@ -35,9 +32,6 @@ class RequirementController extends Controller
         return $student;
     }
 
-    /**
-     * Has the student been accepted for this stage's ongoing phase?
-     */
     private function isAcceptedFor(Student $student, string $stage): bool
     {
         return $stage === 'Internship'
@@ -46,60 +40,73 @@ class RequirementController extends Controller
     }
 
     /**
-     * Why (if at all) may this student NOT submit this definition right now?
-     * Returns null when submission is allowed.
-     *
-     * This is the server-side gate. It is checked independently of what
-     * the UI shows, because a definition ID can be posted directly.
+     * Deployed = the coordinator approved a placement (supervisor + date set)
+     * for THIS stage's program. Completed placements still count.
      */
+    private function isDeployedFor(Student $student, string $stage): bool
+    {
+        return $student->deployments()
+            ->where('program', $stage)
+            ->deployed()
+            ->exists();
+    }
+
+    /**
+     * Ongoing requirements are visible/submittable only after the student is
+     * accepted for the stage AND deployed in it.
+     */
+    private function canSeeOngoing(Student $student, string $stage): bool
+    {
+        return $this->isAcceptedFor($student, $stage)
+            && $this->isDeployedFor($student, $stage);
+    }
+
+    private function stageClosed(Student $student, string $stage): bool
+    {
+        return $stage === 'Internship'
+            ? $student->internship_completed_at !== null
+            : $student->field_study_completed_at !== null;
+    }
+
     private function submissionBlockReason(Student $student, RequirementDefinition $definition): ?string
     {
         $stage = $definition->stage;
         $phase = $definition->phase ?? 'initial';
 
-        if ($stage === 'Internship') {
-            if ($student->internship_status === 'locked') {
-                return 'Internship requirements unlock after you complete Field Study.';
-            }
-
-            if ($student->internship_completed_at !== null) {
-                return 'Your Internship is already completed.';
-            }
+        if ($stage === 'Internship' && ! $student->is_internship_unlocked) {
+            return self::INTERNSHIP_LOCKED_MESSAGE;
         }
 
-        if ($phase === 'ongoing' && ! $this->isAcceptedFor($student, $stage)) {
+        if ($this->stageClosed($student, $stage)) {
+            return $stage === 'Internship'
+                ? 'Your Internship is already completed.'
+                : 'Your Field Study is already completed.';
+        }
+
+        if ($phase === 'ongoing' && ! $this->canSeeOngoing($student, $stage)) {
             return 'You are not currently allowed to submit this requirement.';
         }
 
         return null;
     }
 
-    /**
-     * Display the student's requirement checklist for a stage.
-     *
-     * GET /student/field-study/requirements
-     * GET /student/internship/requirements
-     *
-     * Initial-phase definitions are always shown. Ongoing-phase definitions
-     * only appear once the student has been accepted for that stage.
-     */
     public function index(Request $request)
     {
         $student = $this->currentStudent();
         $stage   = $this->resolveStage($request);
 
-        if ($stage === 'Internship' && $student->internship_status === 'locked') {
+        // Gate enforced here, not only by hiding the tab.
+        if ($stage === 'Internship' && ! $student->is_internship_unlocked) {
             return redirect()
-                ->route('student.dashboard')
-                ->with('error', 'Internship requirements unlock after you complete Field Study.');
+                ->route('student.field-study')
+                ->with('error', self::INTERNSHIP_LOCKED_MESSAGE);
         }
+
+        $showOngoing = $this->canSeeOngoing($student, $stage);
 
         $definitions = RequirementDefinition::active()
             ->forStage($stage)
-            ->when(! $this->isAcceptedFor($student, $stage), function ($query) {
-                // Not yet accepted: only initial-phase requirements are
-                // visible. A null/legacy phase counts as 'initial' so older
-                // definitions don't silently disappear from the checklist.
+            ->when(! $showOngoing, function ($query) {
                 $query->where(function ($q) {
                     $q->where('phase', 'initial')->orWhereNull('phase');
                 });
@@ -108,29 +115,31 @@ class RequirementController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Only this stage's submissions, so Field Study and Internship never mix.
         $submissions = Requirement::where('student_id', $student->id)
-            ->whereNotNull('requirement_definition_id')
+            ->whereHas('requirementDefinition', fn ($d) => $d->where('stage', $stage))
             ->orderBy('id')
             ->get()
             ->keyBy('requirement_definition_id');
 
-        // Same Blade view for both stages. It receives $stage so it can
-        // adjust headings and links.
+        $hasInternshipDeployment = $student->deployments()
+            ->where('program', 'Internship')
+            ->where('status', '!=', 'cancelled')
+            ->exists();
+
         return view('student.field-study.requirements.index', [
-            'student'     => $student,
-            'stage'       => $stage,
-            'definitions' => $definitions,
-            'submissions' => $submissions,
+            'student'          => $student,
+            'stage'            => $stage,
+            'definitions'      => $definitions,
+            'submissions'      => $submissions,
+            'stageClosed'      => $this->stageClosed($student, $stage),
+            'showOngoing'      => $showOngoing,
+            'canChooseSchool'  => $stage === 'Internship'
+                                    && $student->can_select_internship_school
+                                    && ! $hasInternshipDeployment,
         ]);
     }
 
-    /**
-     * Store a submission against a specific requirement definition.
-     *
-     * The stage comes from the DEFINITION itself, never from user input,
-     * so a student can't submit an Internship document by pretending
-     * it's Field Study (or the other way round).
-     */
     public function store(Request $request)
     {
         $student = $this->currentStudent();
@@ -149,29 +158,42 @@ class RequirementController extends Controller
             'You are not currently allowed to submit this requirement.'
         );
 
+        $routeName = $definition->stage === 'Internship'
+            ? 'student.internship.requirements'
+            : 'student.field-study.requirements';
+
         $blockReason = $this->submissionBlockReason($student, $definition);
 
-        abort_if($blockReason !== null, 403, $blockReason);
+        if ($blockReason !== null) {
+            $target = ($definition->stage === 'Internship' && ! $student->is_internship_unlocked)
+                ? 'student.field-study'
+                : $routeName;
 
-        // An approved document is final. Re-uploading would silently reset
-        // it to "pending" and undo the coordinator's approval.
+            return redirect()->route($target)->with('error', $blockReason);
+        }
+
         $existing = Requirement::where('student_id', $student->id)
             ->where('requirement_definition_id', $definition->id)
             ->first();
 
-        abort_if(
-            $existing && $existing->status === 'approved',
-            422,
-            'This requirement has already been approved and cannot be replaced.'
-        );
+        if ($existing && $existing->is_locked) {
+            return back()->with('error', 'This requirement was already approved by the coordinator and can no longer be changed.');
+        }
 
-        $storedPath = $request->file('file')->store(
-            "requirements/{$student->id}",
-            'local'
-        );
+        $newStatus = match (true) {
+            $existing === null
+                => Requirement::STATUS_PENDING,
 
-        // Resubmission: update in place (e.g. a rejected one being corrected)
-        // rather than creating a duplicate row.
+            in_array($existing->status, [Requirement::STATUS_REJECTED, Requirement::STATUS_RESUBMITTED], true)
+                => Requirement::STATUS_RESUBMITTED,
+
+            default
+                => Requirement::STATUS_PENDING,
+        };
+
+        $oldPath    = $existing?->file_path;
+        $storedPath = $request->file('file')->store("requirements/{$student->id}", 'local');
+
         Requirement::updateOrCreate(
             [
                 'student_id'                => $student->id,
@@ -179,37 +201,37 @@ class RequirementController extends Controller
             ],
             [
                 'file_path'    => $storedPath,
-                'status'       => 'pending',
-                'remarks'      => null,
+                'status'       => $newStatus,
                 'submitted_at' => now(),
                 'reviewed_at'  => null,
                 'reviewed_by'  => null,
             ]
         );
 
-        // Internship only: a student who was sent back for correction is
-        // put back in the coordinator's review queue after resubmitting an
-        // initial document.
-        if (
-            $definition->stage === 'Internship'
-            && ($definition->phase ?? 'initial') === 'initial'
-            && in_array($student->internship_status, ['requirements_incomplete', 'rejected'], true)
-        ) {
-            $student->update(['internship_status' => 'pending_review']);
+        if ($oldPath && $oldPath !== $storedPath) {
+            Storage::disk('local')->delete($oldPath);
         }
 
-        $routeName = $definition->stage === 'Internship'
-            ? 'student.internship.requirements'
-            : 'student.field-study.requirements';
+        if (($definition->phase ?? 'initial') === 'initial') {
+            $statusColumn = $definition->stage === 'Internship' ? 'internship_status' : 'field_study_status';
+
+            if (in_array($student->{$statusColumn}, ['requirements_incomplete', 'rejected'], true)) {
+                $student->update([$statusColumn => 'pending_review']);
+            }
+        }
+
+        $message = match ($newStatus) {
+            Requirement::STATUS_RESUBMITTED => 'Requirement resubmitted. Your coordinator will review it again.',
+            default                         => $existing
+                                                ? 'File updated. Your coordinator will review the new file.'
+                                                : 'Requirement submitted successfully.',
+        };
 
         return redirect()
             ->route($routeName)
-            ->with('success', 'Requirement submitted successfully.');
+            ->with('success', $message);
     }
 
-    /**
-     * Stream a requirement file, verifying ownership first.
-     */
     public function show(Requirement $requirement)
     {
         $student = $this->currentStudent();

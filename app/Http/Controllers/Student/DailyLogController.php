@@ -16,6 +16,8 @@ class DailyLogController extends Controller
      */
     const REQUIRED_HOURS = 600;
 
+    const STAGES = ['Field Study', 'Internship'];
+
     protected function student()
     {
         return Auth::user()->student;
@@ -23,7 +25,8 @@ class DailyLogController extends Controller
 
     /**
      * The student's current open deployment, Field Study OR Internship.
-     * Cancelled and completed deployments are ignored.
+     * Cancelled and completed deployments are ignored. An approved
+     * deployment is preferred over a pending one.
      */
     protected function currentDeployment($student)
     {
@@ -35,6 +38,7 @@ class DailyLogController extends Controller
             ->where('student_id', $student->id)
             ->whereNull('completed_at')
             ->where('status', '!=', 'cancelled')
+            ->orderByRaw('supervisor_id is null')
             ->latest('id')
             ->first();
     }
@@ -46,7 +50,7 @@ class DailyLogController extends Controller
      */
     protected function syncStudentHours($student, ?string $program): void
     {
-        if (! in_array($program, ['Field Study', 'Internship'], true)) {
+        if (! in_array($program, self::STAGES, true)) {
             return;
         }
 
@@ -65,53 +69,79 @@ class DailyLogController extends Controller
     }
 
     /**
-     * Display the Teaching Hours page.
+     * Display the Teaching Hours page for one stage.
+     *
+     * GET /student/teaching-hours?stage=Field Study|Internship
+     *
+     * With no ?stage= the page opens on the stage of the student's current
+     * open deployment. The Internship tab stays closed until the coordinator
+     * clears Field Study.
      */
-    public function index()
+    public function index(Request $request)
     {
         $student = $this->student();
 
         abort_unless($student, 403, 'No student profile is linked to this account.');
 
-        $deployment = $this->currentDeployment($student);
+        $openDeployment = $this->currentDeployment($student);
 
-        // Logging is only allowed with an approved deployment.
-        $canLogHours = (bool) ($deployment && $deployment->is_approved);
+        $stage = $request->query('stage');
 
-        $todayLogs       = collect();
-        $activeTodayLog  = null;
-        $todayTotalHours = 0;
-        $totalHours      = 0;
-        $history         = collect();
-
-        if ($deployment) {
-            $todayLogs = DailyLog::where('student_id', $student->id)
-                ->where('deployment_id', $deployment->id)
-                ->whereDate('date', Carbon::today())
-                ->orderBy('time_in')
-                ->get();
-
-            $activeTodayLog = $todayLogs->firstWhere('status', 'in_progress');
-
-            $todayTotalHours = round(
-                (float) $todayLogs->where('status', 'completed')->sum('hours_rendered'),
-                2
-            );
-
-            // Only completed logs count toward the official total.
-            $totalHours = DailyLog::where('student_id', $student->id)
-                ->where('deployment_id', $deployment->id)
-                ->where('status', 'completed')
-                ->sum('hours_rendered');
-
-            $history = DailyLog::where('student_id', $student->id)
-                ->where('deployment_id', $deployment->id)
-                ->orderByDesc('date')
-                ->orderByDesc('time_in')
-                ->paginate(15);
+        if (! in_array($stage, self::STAGES, true)) {
+            $stage = $openDeployment->program
+                ?? ($student->is_internship_unlocked ? 'Internship' : 'Field Study');
         }
 
-        $totalHours = round((float) $totalHours, 2);
+        if ($stage === 'Internship' && ! $student->is_internship_unlocked) {
+            $stage = 'Field Study';
+        }
+
+        // Every deployment of this stage, so the totals match students.*_hours
+        $stageDeployments = Deployment::with(['partnerSchool', 'supervisor'])
+            ->where('student_id', $student->id)
+            ->where('program', $stage)
+            ->latest('id')
+            ->get();
+
+        $deploymentIds = $stageDeployments->pluck('id');
+
+        // The deployment shown on the page: latest one that was not cancelled
+        $deployment = $stageDeployments->first(fn ($d) => $d->status !== 'cancelled');
+
+        $stageCompleted = (bool) optional($deployment)->completed_at;
+
+        // The clock only works for the stage that has the open, approved deployment
+        $canLogHours = (bool) (
+            $openDeployment
+            && $openDeployment->is_approved
+            && $openDeployment->program === $stage
+        );
+
+        $todayLogs = DailyLog::where('student_id', $student->id)
+            ->whereIn('deployment_id', $deploymentIds)
+            ->whereDate('date', Carbon::today())
+            ->orderBy('time_in')
+            ->get();
+
+        $activeTodayLog = $todayLogs->firstWhere('status', 'in_progress');
+
+        $todayTotalHours = round(
+            (float) $todayLogs->where('status', 'completed')->sum('hours_rendered'),
+            2
+        );
+
+        // Only completed logs count toward the official total.
+        $totalHours = round((float) DailyLog::where('student_id', $student->id)
+            ->whereIn('deployment_id', $deploymentIds)
+            ->where('status', 'completed')
+            ->sum('hours_rendered'), 2);
+
+        $history = DailyLog::where('student_id', $student->id)
+            ->whereIn('deployment_id', $deploymentIds)
+            ->orderByDesc('date')
+            ->orderByDesc('time_in')
+            ->paginate(15)
+            ->withQueryString();
 
         $progressPercent = min(
             100,
@@ -119,9 +149,12 @@ class DailyLogController extends Controller
         );
 
         return view('student.teaching-hours.index', [
+            'student'         => $student,
+            'stage'           => $stage,
             'deployment'      => $deployment,
-            'program'         => $deployment->program ?? null,
+            'program'         => $stage,
             'canLogHours'     => $canLogHours,
+            'stageCompleted'  => $stageCompleted,
             'todayLogs'       => $todayLogs,
             'activeTodayLog'  => $activeTodayLog,
             'todayTotalHours' => $todayTotalHours,

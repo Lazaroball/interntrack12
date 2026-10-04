@@ -16,12 +16,12 @@ class StudentDeploymentController extends Controller
 
     /**
      * Which deployment is this student choosing a school for?
-     * Anyone whose Internship is unlocked is choosing for Internship;
-     * everyone else is choosing for Field Study.
+     * Internship ONLY after the coordinator cleared Field Study.
+     * Everyone else is choosing for Field Study.
      */
     private function resolveProgram(Student $student): string
     {
-        return ($student->internship_status ?? 'locked') !== 'locked'
+        return $student->is_internship_unlocked
             ? 'Internship'
             : 'Field Study';
     }
@@ -62,9 +62,6 @@ class StudentDeploymentController extends Controller
             ->first();
     }
 
-    /**
-     * Display the partner school selection page.
-     */
     public function index()
     {
         $student = Auth::user()?->student;
@@ -93,9 +90,6 @@ class StudentDeploymentController extends Controller
         );
     }
 
-    /**
-     * Save or update the student's partner school request.
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([

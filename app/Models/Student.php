@@ -66,17 +66,11 @@ class Student extends Model
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Student's login account.
-     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Student's preferred partner school.
-     */
     public function preferredPartnerSchool()
     {
         return $this->belongsTo(
@@ -85,28 +79,16 @@ class Student extends Model
         );
     }
 
-    /**
-     * All deployments belonging to the student
-     * (a student can have one Field Study and one Internship deployment).
-     */
     public function deployments()
     {
         return $this->hasMany(Deployment::class);
     }
 
-    /**
-     * Latest deployment. Kept so existing $student->deployment calls still work.
-     */
     public function deployment()
     {
         return $this->hasOne(Deployment::class)->latestOfMany();
     }
 
-    /**
-     * The student's current deployment (not completed, not cancelled).
-     *
-     * Ordered by id, because pending deployments have no deployment_date yet.
-     */
     public function currentDeployment()
     {
         return $this->hasOne(Deployment::class)
@@ -115,9 +97,6 @@ class Student extends Model
             ->latestOfMany('id');
     }
 
-    /**
-     * Internship deployment that is still open (not completed/cancelled).
-     */
     public function internshipDeployment()
     {
         return $this->hasOne(Deployment::class)
@@ -127,9 +106,6 @@ class Student extends Model
             ->latestOfMany('id');
     }
 
-    /**
-     * Field Study deployment that is still open (not completed/cancelled).
-     */
     public function fieldStudyDeployment()
     {
         return $this->hasOne(Deployment::class)
@@ -145,9 +121,6 @@ class Student extends Model
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Student's complete name.
-     */
     public function getFullNameAttribute(): string
     {
         return trim(
@@ -157,9 +130,6 @@ class Student extends Model
         );
     }
 
-    /**
-     * Human-friendly label for field_study_status.
-     */
     public function getFieldStudyStatusLabelAttribute(): string
     {
         return match ($this->field_study_status) {
@@ -172,10 +142,6 @@ class Student extends Model
         };
     }
 
-    /**
-     * Determine whether the student currently has an open deployment
-     * (not completed, not cancelled).
-     */
     public function getIsDeployedAttribute(): bool
     {
         return $this->deployments()
@@ -190,9 +156,6 @@ class Student extends Model
     |--------------------------------------------------------------------------
     */
 
-    /**
-     * Human-friendly label for internship_status.
-     */
     public function getInternshipStatusLabelAttribute(): string
     {
         return match ($this->internship_status) {
@@ -203,6 +166,17 @@ class Student extends Model
             'rejected'                => 'Rejected / Needs Correction',
             default                   => 'Locked (Field Study not completed)',
         };
+    }
+
+    /**
+     * Internship is reachable ONLY after the coordinator cleared Field Study
+     * (field_study_completed_at is set) AND the status column is not 'locked'.
+     * A stray internship_status value can no longer unlock it early.
+     */
+    public function getIsInternshipUnlockedAttribute(): bool
+    {
+        return $this->field_study_completed_at !== null
+            && ($this->internship_status ?? 'locked') !== 'locked';
     }
 
     /**
@@ -221,19 +195,16 @@ class Student extends Model
     }
 
     /**
-     * Student may pick an Internship school only after
-     * initial Internship requirements are accepted.
+     * Student may pick an Internship school only after Internship is unlocked
+     * and the initial Internship requirements are accepted.
      */
     public function getCanSelectInternshipSchoolAttribute(): bool
     {
-        return $this->internship_status === 'accepted'
+        return $this->is_internship_unlocked
+            && $this->internship_status === 'accepted'
             && $this->internship_completed_at === null;
     }
 
-    /**
-     * True when every active, required definition for the stage
-     * (optionally limited to one phase) has an approved submission.
-     */
     public function hasAllRequiredApproved(string $stage, ?string $phase = null): bool
     {
         $required = RequirementDefinition::active()
@@ -313,9 +284,6 @@ class Student extends Model
         });
     }
 
-    /**
-     * Sets internship_completed_at ONLY when both passes exist.
-     */
     protected function finalizeInternshipIfBothPassed(): void
     {
         if (! $this->internship_coordinator_passed_at || ! $this->internship_supervisor_passed_at) {
@@ -339,7 +307,7 @@ class Student extends Model
             throw new DomainException('This student has already completed the Internship.');
         }
 
-        if ($this->internship_status !== 'accepted') {
+        if (! $this->is_internship_unlocked || $this->internship_status !== 'accepted') {
             throw new DomainException('The student has not been accepted for Internship.');
         }
 

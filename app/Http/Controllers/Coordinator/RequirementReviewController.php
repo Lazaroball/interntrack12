@@ -34,8 +34,7 @@ class RequirementReviewController extends Controller
 
     /**
      * List students awaiting requirement review for the chosen stage,
-     * with a submission-completion summary (grey/orange/green),
-     * split by phase (initial/ongoing).
+     * with a submission summary and how many documents need review.
      *
      * GET /coordinator/requirements/review?stage=Field Study|Internship
      */
@@ -81,13 +80,14 @@ class RequirementReviewController extends Controller
             ->orderBy('program')
             ->pluck('program');
 
-        // ── Required, active definitions for the stage, split by phase ──
+        // ── Active definitions for the stage, split by phase ──
         // (a definition with no phase set falls under 'initial' by default,
         // matching the original requirements which predate the phase column)
-        $requiredDefinitions = RequirementDefinition::active()
+        $stageDefinitions = RequirementDefinition::active()
             ->forStage($stage)
-            ->where('is_required', true)
-            ->get(['id', 'phase']);
+            ->get(['id', 'phase', 'is_required']);
+
+        $requiredDefinitions = $stageDefinitions->where('is_required', true);
 
         $initialDefinitionIds = $requiredDefinitions
             ->filter(fn ($d) => ($d->phase ?? 'initial') === 'initial')
@@ -97,18 +97,15 @@ class RequirementReviewController extends Controller
             ->filter(fn ($d) => $d->phase === 'ongoing')
             ->pluck('id');
 
-        $allRequiredDefinitionIds = $requiredDefinitions->pluck('id');
-
-        // One query for every student on this page: which required
-        // definitions have a submission (any status counts as "submitted").
-        $submittedByStudent = Requirement::whereIn('student_id', $students->pluck('id'))
-            ->whereIn('requirement_definition_id', $allRequiredDefinitionIds)
-            ->get(['student_id', 'requirement_definition_id'])
+        // One query for every student on this page.
+        $submissionsByStudent = Requirement::whereIn('student_id', $students->pluck('id'))
+            ->whereIn('requirement_definition_id', $stageDefinitions->pluck('id'))
+            ->get(['student_id', 'requirement_definition_id', 'status'])
             ->groupBy('student_id');
 
         foreach ($students as $student) {
-            $submittedIds = $submittedByStudent->get($student->id, collect())
-                ->pluck('requirement_definition_id');
+            $submissions  = $submissionsByStudent->get($student->id, collect());
+            $submittedIds = $submissions->pluck('requirement_definition_id');
 
             $initialSubmitted = $submittedIds->intersect($initialDefinitionIds)->unique()->count();
             $ongoingSubmitted = $submittedIds->intersect($ongoingDefinitionIds)->unique()->count();
@@ -127,6 +124,10 @@ class RequirementReviewController extends Controller
                 $ongoingDefinitionIds->count(),
                 $ongoingSubmitted
             );
+
+            // Documents waiting for the coordinator (pending + resubmitted)
+            $student->to_review_count   = $submissions->whereIn('status', Requirement::NEEDS_REVIEW)->count();
+            $student->resubmitted_count = $submissions->where('status', Requirement::STATUS_RESUBMITTED)->count();
         }
 
         return view('coordinator.requirements.review.index', compact(
@@ -197,14 +198,32 @@ class RequirementReviewController extends Controller
     }
 
     /**
-     * Approve or reject an individual submission.
+     * Approve a submission, or send it back for resubmission.
+     *
+     * Approve  -> status "approved". The file is locked for the student.
+     * Reject   -> status "rejected". Notes are REQUIRED; the student sees
+     *             them and can replace the file (it then becomes "resubmitted").
+     *
+     * An approved document can be reopened (rejected with notes) if the
+     * coordinator approved it by mistake or needs a correction.
      */
     public function updateSubmission(Request $request, Requirement $requirement)
     {
         $validated = $request->validate([
             'status'  => ['required', 'in:approved,rejected'],
-            'remarks' => ['nullable', 'string', 'max:1000'],
+            'remarks' => ['required_if:status,rejected', 'nullable', 'string', 'min:5', 'max:1000'],
+        ], [
+            'remarks.required_if' => 'Please add notes explaining what the student needs to fix.',
+            'remarks.min'         => 'The notes are too short. Tell the student what to fix.',
         ]);
+
+        if ($requirement->status === Requirement::STATUS_REJECTED) {
+            return back()->with('error', 'This document was already sent back. Wait for the student to resubmit it.');
+        }
+
+        if ($requirement->status === Requirement::STATUS_APPROVED && $validated['status'] === 'approved') {
+            return back()->with('error', 'This document is already approved.');
+        }
 
         $requirement->update([
             'status'      => $validated['status'],
@@ -213,7 +232,12 @@ class RequirementReviewController extends Controller
             'reviewed_by' => optional(auth()->user()->coordinator)->id,
         ]);
 
-        return back()->with('success', 'Submission updated.');
+        return back()->with(
+            'success',
+            $validated['status'] === 'approved'
+                ? 'Document approved. It is now locked for the student.'
+                : 'Document sent back. The student can see your notes and resubmit.'
+        );
     }
 
     /**

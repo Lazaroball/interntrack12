@@ -30,6 +30,7 @@ use App\Http\Controllers\Supervisor\FieldStudyRequestController;
 use App\Http\Controllers\Student\StudentDashboardController;
 use App\Http\Controllers\Student\StudentProfileController;
 use App\Http\Controllers\Student\FieldStudyController;
+use App\Http\Controllers\Student\InternshipController; // NEW
 use App\Http\Controllers\Student\RequirementController;
 use App\Http\Controllers\Student\StudentFieldStudyRequestController;
 use App\Http\Controllers\Student\DailyLogController;
@@ -305,6 +306,10 @@ Route::middleware(['auth', 'role:student'])->group(function () {
 
     Route::post('/student/field-study/request-completion', [StudentFieldStudyRequestController::class, 'store'])
         ->name('student.field-study.completion-request.store');
+
+    // Internship Overview // NEW
+    Route::get('/student/internship', [InternshipController::class, 'index'])
+        ->name('student.internship');
 
     // Internship Requirements
     Route::get('/student/internship/requirements', [RequirementController::class, 'index'])
