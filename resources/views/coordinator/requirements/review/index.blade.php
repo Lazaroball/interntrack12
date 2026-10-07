@@ -39,7 +39,7 @@
         </div>
     @endif
 
-    {{-- ── Live Search (client-side, current page) + Server-side Filters ── --}}
+    {{-- ── Live Search (client-side, current page) + Filters (apply automatically) ── --}}
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-4"
          x-data="{
             search: '',
@@ -53,6 +53,7 @@
                     lastName: @js($student->last_name),
                     studentNumber: @js($student->student_number),
                     program: @js($student->program),
+                    block: @js($student->block),
                     progress: @js($student->submission_progress),
                     toReview: @js($student->to_review_count),
                     resubmitted: @js($student->resubmitted_count),
@@ -65,9 +66,9 @@
                 const q = this.search.trim().toLowerCase();
                 if (!q) return this.students;
                 return this.students.filter(s => {
-                    return [s.name, s.firstName, s.middleName, s.lastName, s.studentNumber, s.program]
+                    return [s.name, s.firstName, s.middleName, s.lastName, s.studentNumber, s.program, s.block]
                         .filter(Boolean)
-                        .some(field => field.toLowerCase().includes(q));
+                        .some(field => String(field).toLowerCase().includes(q));
                 });
             }
          }">
@@ -81,20 +82,20 @@
                         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                     </svg>
                     <input type="text" x-model="search"
-                           placeholder="Name, student number, or program..."
+                           placeholder="Name, student number, program, or block..."
                            class="w-full pl-9 pr-3.5 py-2 rounded-xl border-2 border-slate-200 text-sm text-slate-700 outline-none
                                   transition-colors duration-150 focus:ring-2 focus:ring-blue-300 focus:border-blue-400">
                 </div>
                 <p class="text-[11px] text-slate-400 mt-1">Filters instantly among the students currently loaded on this page.</p>
             </div>
 
+            {{-- Stage, Program, Block and Status apply automatically when changed --}}
             <form method="GET" action="{{ route('coordinator.requirements.review.index') }}" class="flex flex-wrap items-end gap-3">
 
-                <div class="min-w-[160px]">
+                <div class="min-w-[150px]">
                     <label class="block text-xs font-semibold text-slate-500 mb-1">Stage</label>
                     <select name="stage"
-                            x-data
-                            x-on:change="$el.form.elements['status'].value = ''; $el.form.requestSubmit()"
+                            onchange="this.form.requestSubmit();"
                             class="w-full px-3.5 py-2 rounded-xl border-2 border-slate-200 text-sm text-slate-700 outline-none
                                    transition-colors duration-150 focus:ring-2 focus:ring-blue-300 focus:border-blue-400">
                         <option value="Field Study" @selected(request('stage', 'Field Study') === 'Field Study')>Field Study</option>
@@ -102,9 +103,10 @@
                     </select>
                 </div>
 
-                <div class="min-w-[180px]">
+                <div class="min-w-[170px]">
                     <label class="block text-xs font-semibold text-slate-500 mb-1">Program</label>
                     <select name="program"
+                            onchange="this.form.elements['block'].value = ''; this.form.requestSubmit();"
                             class="w-full px-3.5 py-2 rounded-xl border-2 border-slate-200 text-sm text-slate-700 outline-none
                                    transition-colors duration-150 focus:ring-2 focus:ring-blue-300 focus:border-blue-400">
                         <option value="">All Programs</option>
@@ -114,39 +116,40 @@
                     </select>
                 </div>
 
-                <div class="min-w-[190px]">
-                    <label class="block text-xs font-semibold text-slate-500 mb-1">Status</label>
-                    <select name="status"
+                <div class="min-w-[130px]">
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Block</label>
+                    <select name="block"
+                            onchange="this.form.requestSubmit();"
                             class="w-full px-3.5 py-2 rounded-xl border-2 border-slate-200 text-sm text-slate-700 outline-none
                                    transition-colors duration-150 focus:ring-2 focus:ring-blue-300 focus:border-blue-400">
-                        <option value="">All Statuses</option>
-                        @if ($stage === 'Internship')
-                            <option value="pending_review" @selected(request('status') === 'pending_review')>Pending Review</option>
-                            <option value="requirements_incomplete" @selected(request('status') === 'requirements_incomplete')>Requirements Incomplete</option>
-                            <option value="accepted" @selected(request('status') === 'accepted')>Accepted for Internship</option>
-                            <option value="rejected" @selected(request('status') === 'rejected')>Rejected / Needs Correction</option>
-                        @else
-                            <option value="pending_review" @selected(request('status') === 'pending_review')>Pending Review</option>
-                            <option value="requirements_incomplete" @selected(request('status') === 'requirements_incomplete')>Requirements Incomplete</option>
-                            <option value="requirements_approved" @selected(request('status') === 'requirements_approved')>Requirements Approved</option>
-                            <option value="accepted" @selected(request('status') === 'accepted')>Accepted for Field Study</option>
-                            <option value="rejected" @selected(request('status') === 'rejected')>Rejected / Needs Correction</option>
-                        @endif
+                        <option value="">All Blocks</option>
+                        @foreach ($blocks as $block)
+                            <option value="{{ $block }}" @selected((string) request('block') === (string) $block)>{{ $block }}</option>
+                        @endforeach
                     </select>
                 </div>
 
-                <div class="flex items-center gap-2">
-                    <button type="submit"
-                            class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors duration-150">
-                        Filter
-                    </button>
-                    @if (request()->filled('program') || request()->filled('status') || (request()->filled('stage') && request('stage') !== 'Field Study'))
+                <div class="min-w-[170px]">
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Status</label>
+                    <select name="submission"
+                            onchange="this.form.requestSubmit();"
+                            class="w-full px-3.5 py-2 rounded-xl border-2 border-slate-200 text-sm text-slate-700 outline-none
+                                   transition-colors duration-150 focus:ring-2 focus:ring-blue-300 focus:border-blue-400">
+                        <option value="">All</option>
+                        <option value="not_submitted" @selected(request('submission') === 'not_submitted')>Not Submitted</option>
+                        <option value="incomplete" @selected(request('submission') === 'incomplete')>Incomplete</option>
+                        <option value="all_submitted" @selected(request('submission') === 'all_submitted')>All Submitted</option>
+                    </select>
+                </div>
+
+                @if (request()->filled('program') || request()->filled('block') || request()->filled('submission') || (request()->filled('stage') && request('stage') !== 'Field Study'))
+                    <div class="flex items-center gap-2">
                         <a href="{{ route('coordinator.requirements.review.index') }}"
                            class="px-4 py-2 rounded-xl border-2 border-slate-200 hover:bg-slate-100 text-slate-600 text-sm font-semibold transition-colors duration-150">
                             Clear
                         </a>
-                    @endif
-                </div>
+                    </div>
+                @endif
             </form>
         </div>
 
@@ -158,15 +161,16 @@
                             <th class="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Student</th>
                             <th class="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Student No.</th>
                             <th class="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Program</th>
+                            <th class="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Block</th>
                             <th class="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">{{ $stage }}</th>
-                            <th class="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Status</th>
+                            <th class="text-left px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Submission</th>
                             <th class="text-right px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-50">
                         @if ($students->isEmpty())
                             <tr>
-                                <td colspan="6" class="px-4 py-8 text-center text-sm text-slate-400 italic">No students found matching your search/filters.</td>
+                                <td colspan="7" class="px-4 py-8 text-center text-sm text-slate-400 italic">No students found matching your filters.</td>
                             </tr>
                         @else
                             <template x-for="student in filtered" :key="student.id">
@@ -174,6 +178,7 @@
                                     <td class="px-4 py-3 font-semibold text-slate-800" x-text="student.name"></td>
                                     <td class="px-4 py-3 font-mono text-slate-600" x-text="student.studentNumber || '—'"></td>
                                     <td class="px-4 py-3 text-slate-600" x-text="student.program || '—'"></td>
+                                    <td class="px-4 py-3 text-slate-600" x-text="student.block || '—'"></td>
                                     <td class="px-4 py-3 text-slate-600" x-text="student.statusLabel"></td>
                                     <td class="px-4 py-3">
                                         <div class="flex flex-wrap items-center gap-1.5">
@@ -181,7 +186,7 @@
                                                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">Not Submitted</span>
                                             </template>
                                             <template x-if="student.progress === 'orange'">
-                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">Partial</span>
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">Incomplete</span>
                                             </template>
                                             <template x-if="student.progress === 'green'">
                                                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">All Submitted</span>
@@ -207,7 +212,7 @@
                             </template>
 
                             <tr x-show="filtered.length === 0">
-                                <td colspan="6" class="px-4 py-8 text-center text-sm text-slate-400 italic">No students found.</td>
+                                <td colspan="7" class="px-4 py-8 text-center text-sm text-slate-400 italic">No students found.</td>
                             </tr>
                         @endif
                     </tbody>

@@ -7,6 +7,7 @@ use App\Models\Requirement;
 use App\Models\RequirementDefinition;
 use App\Models\Student;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
 
 class RequirementReviewController extends Controller
@@ -43,14 +44,25 @@ class RequirementReviewController extends Controller
         $stage        = $this->resolveStage($request);
         $statusColumn = $this->statusColumn($stage);
 
-        // Accept both the new ?status= and the old ?field_study_status= filter.
+        // Old links may still send ?status= or ?field_study_status= (eligibility status).
         $statusFilter = $request->get('status', $request->get('field_study_status'));
+
+        // New submission filter used by the page: not_submitted | incomplete | all_submitted
+        $submissionFilter = $request->get('submission');
+        $progressMap = [
+            'not_submitted' => 'grey',
+            'incomplete'    => 'orange',
+            'all_submitted' => 'green',
+        ];
+        if (! array_key_exists($submissionFilter, $progressMap)) {
+            $submissionFilter = null;
+        }
 
         $reviewableStatuses = $stage === 'Internship'
             ? ['pending_review', 'requirements_incomplete', 'accepted', 'rejected']
             : ['pending_review', 'requirements_incomplete', 'requirements_approved', 'accepted', 'rejected'];
 
-        $students = Student::query()
+        $allStudents = Student::query()
             // Internship: "locked" students haven't finished Field Study yet,
             // so they never appear here.
             ->whereIn($statusColumn, $reviewableStatuses)
@@ -65,14 +77,11 @@ class RequirementReviewController extends Controller
                 });
             })
             ->when($request->filled('program'), fn ($q) => $q->where('program', $request->get('program')))
-            ->when(
-                filled($statusFilter),
-                fn ($q) => $q->where($statusColumn, $statusFilter)
-            )
+            ->when($request->filled('block'), fn ($q) => $q->where('block', $request->get('block')))
+            ->when(filled($statusFilter), fn ($q) => $q->where($statusColumn, $statusFilter))
             ->orderBy('last_name')
             ->orderBy('first_name')
-            ->paginate(15)
-            ->withQueryString();
+            ->get();
 
         $programs = Student::query()
             ->whereNotNull('program')
@@ -80,9 +89,17 @@ class RequirementReviewController extends Controller
             ->orderBy('program')
             ->pluck('program');
 
+        // Blocks, narrowed to the chosen program when there is one.
+        $blocks = Student::query()
+            ->whereNotNull('block')
+            ->where('block', '!=', '')
+            ->when($request->filled('program'), fn ($q) => $q->where('program', $request->get('program')))
+            ->distinct()
+            ->orderBy('block')
+            ->pluck('block');
+
         // ── Active definitions for the stage, split by phase ──
-        // (a definition with no phase set falls under 'initial' by default,
-        // matching the original requirements which predate the phase column)
+        // A blank phase counts as 'initial' (same rule as the student page).
         $stageDefinitions = RequirementDefinition::active()
             ->forStage($stage)
             ->get(['id', 'phase', 'is_required']);
@@ -90,39 +107,46 @@ class RequirementReviewController extends Controller
         $requiredDefinitions = $stageDefinitions->where('is_required', true);
 
         $initialDefinitionIds = $requiredDefinitions
-            ->filter(fn ($d) => ($d->phase ?? 'initial') === 'initial')
-            ->pluck('id');
+            ->filter(fn ($d) => in_array($d->phase, [null, '', 'initial'], true))
+            ->pluck('id')
+            ->values();
 
         $ongoingDefinitionIds = $requiredDefinitions
             ->filter(fn ($d) => $d->phase === 'ongoing')
-            ->pluck('id');
+            ->pluck('id')
+            ->values();
 
-        // One query for every student on this page.
-        $submissionsByStudent = Requirement::whereIn('student_id', $students->pluck('id'))
+        // One query for every matching student.
+        $submissionsByStudent = Requirement::whereIn('student_id', $allStudents->pluck('id'))
             ->whereIn('requirement_definition_id', $stageDefinitions->pluck('id'))
-            ->get(['student_id', 'requirement_definition_id', 'status'])
+            ->get(['student_id', 'requirement_definition_id', 'file_path', 'status'])
             ->groupBy('student_id');
 
-        foreach ($students as $student) {
-            $submissions  = $submissionsByStudent->get($student->id, collect());
-            $submittedIds = $submissions->pluck('requirement_definition_id');
+        foreach ($allStudents as $student) {
+            $submissions = $submissionsByStudent->get($student->id, collect());
 
-            $initialSubmitted = $submittedIds->intersect($initialDefinitionIds)->unique()->count();
-            $ongoingSubmitted = $submittedIds->intersect($ongoingDefinitionIds)->unique()->count();
+            // A rejected document must be replaced, so it does not count as uploaded.
+            $uploadedIds = $submissions
+                ->filter(fn ($s) => filled($s->file_path) && $s->status !== Requirement::STATUS_REJECTED)
+                ->pluck('requirement_definition_id')
+                ->unique();
+
+            $initialUploaded = $uploadedIds->intersect($initialDefinitionIds)->count();
+            $ongoingUploaded = $uploadedIds->intersect($ongoingDefinitionIds)->count();
 
             $student->initial_required  = $initialDefinitionIds->count();
-            $student->initial_submitted = $initialSubmitted;
+            $student->initial_submitted = $initialUploaded;
             $student->ongoing_required  = $ongoingDefinitionIds->count();
-            $student->ongoing_submitted = $ongoingSubmitted;
+            $student->ongoing_submitted = $ongoingUploaded;
 
             $student->submission_progress = $this->progressState(
                 $initialDefinitionIds->count(),
-                $initialSubmitted
+                $initialUploaded
             );
 
             $student->ongoing_submission_progress = $this->progressState(
                 $ongoingDefinitionIds->count(),
-                $ongoingSubmitted
+                $ongoingUploaded
             );
 
             // Documents waiting for the coordinator (pending + resubmitted)
@@ -130,10 +154,28 @@ class RequirementReviewController extends Controller
             $student->resubmitted_count = $submissions->where('status', Requirement::STATUS_RESUBMITTED)->count();
         }
 
+        // Submission filter works across ALL pages, then we paginate the result.
+        if ($submissionFilter) {
+            $allStudents = $allStudents
+                ->filter(fn ($s) => $s->submission_progress === $progressMap[$submissionFilter])
+                ->values();
+        }
+
+        $perPage  = 15;
+        $page     = LengthAwarePaginator::resolveCurrentPage();
+        $students = new LengthAwarePaginator(
+            $allStudents->forPage($page, $perPage)->values(),
+            $allStudents->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
         return view('coordinator.requirements.review.index', compact(
             'students',
             'stage',
             'programs',
+            'blocks',
             'statusColumn'
         ));
     }
@@ -201,20 +243,18 @@ class RequirementReviewController extends Controller
      * Approve a submission, or send it back for resubmission.
      *
      * Approve  -> status "approved". The file is locked for the student.
-     * Reject   -> status "rejected". Notes are REQUIRED; the student sees
-     *             them and can replace the file (it then becomes "resubmitted").
+     * Reject   -> status "rejected". Notes are not required; if given, the
+     *             student sees them and can replace the file (it then
+     *             becomes "resubmitted").
      *
-     * An approved document can be reopened (rejected with notes) if the
-     * coordinator approved it by mistake or needs a correction.
+     * An approved document can be reopened (rejected) if the coordinator
+     * approved it by mistake or needs a correction.
      */
     public function updateSubmission(Request $request, Requirement $requirement)
     {
         $validated = $request->validate([
             'status'  => ['required', 'in:approved,rejected'],
-            'remarks' => ['required_if:status,rejected', 'nullable', 'string', 'min:5', 'max:1000'],
-        ], [
-            'remarks.required_if' => 'Please add notes explaining what the student needs to fix.',
-            'remarks.min'         => 'The notes are too short. Tell the student what to fix.',
+            'remarks' => ['nullable', 'string', 'max:1000'],
         ]);
 
         if ($requirement->status === Requirement::STATUS_REJECTED) {
@@ -227,7 +267,7 @@ class RequirementReviewController extends Controller
 
         $requirement->update([
             'status'      => $validated['status'],
-            'remarks'     => $validated['remarks'] ?? null,
+            'remarks'     => filled($validated['remarks'] ?? null) ? trim($validated['remarks']) : null,
             'reviewed_at' => now(),
             'reviewed_by' => optional(auth()->user()->coordinator)->id,
         ]);
@@ -236,19 +276,29 @@ class RequirementReviewController extends Controller
             'success',
             $validated['status'] === 'approved'
                 ? 'Document approved. It is now locked for the student.'
-                : 'Document sent back. The student can see your notes and resubmit.'
+                : 'Document sent back. The student can resubmit it.'
         );
     }
 
     /**
      * Securely stream a submitted file for coordinator review.
+     * Inline by default (so the viewer can show it), or as a download
+     * with ?download=1. Both use the student's original file name.
      */
-    public function file(Requirement $requirement)
+    public function file(Request $request, Requirement $requirement)
     {
         abort_if(empty($requirement->file_path), 404, 'No file submitted for this requirement.');
         abort_unless(Storage::disk('local')->exists($requirement->file_path), 404, 'File not found.');
 
-        return Storage::disk('local')->response($requirement->file_path);
+        $name = $requirement->display_name;
+
+        if ($request->boolean('download')) {
+            return Storage::disk('local')->download($requirement->file_path, $name);
+        }
+
+        return Storage::disk('local')->response($requirement->file_path, $name, [
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     /*

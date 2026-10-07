@@ -78,6 +78,8 @@ class StudentImportController extends Controller
             );
         }
 
+        
+
         $filePath = $uploadedFile->store('imports');
 
         $originalFileName = $uploadedFile->getClientOriginalName();
@@ -128,6 +130,10 @@ class StudentImportController extends Controller
         } else {
             $message = "Import completed with errors.";
         }
+        if (($result['archived'] ?? 0) > 0)
+             {
+            $message .= " {$result['archived']} record(s) were skipped because they are archived. Ask the admin to restore them.";
+}
 
         return redirect()
             ->route('coordinator.students.import')

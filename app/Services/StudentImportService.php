@@ -36,6 +36,7 @@ class StudentImportService
         $successCount   = 0;
         $failedCount    = 0;
         $duplicateCount = 0;
+        $archivedCount  = 0;
         $totalCount     = 0;
 
         foreach ($rows as $row) {
@@ -71,6 +72,21 @@ class StudentImportService
 
             if ($studentNumber === '' || $fullName === '' || $email === '') {
                 $failedCount++;
+                continue;
+            }
+
+            // Archived record (same student number or email): never recreate or overwrite it.
+            // The admin must restore it from Student Records instead.
+            $archivedMatch = Student::onlyArchived()
+                ->where(function ($q) use ($studentNumber, $email) {
+                    $q->where('student_number', $studentNumber)
+                        ->orWhere('email', $email)
+                        ->orWhereHas('user', fn ($u) => $u->where('email', $email));
+                })
+                ->exists();
+
+            if ($archivedMatch) {
+                $archivedCount++;
                 continue;
             }
 
@@ -167,6 +183,7 @@ class StudentImportService
             'success'   => $successCount,
             'failed'    => $failedCount,
             'duplicate' => $duplicateCount,
+            'archived'  => $archivedCount,
         ];
     }
 

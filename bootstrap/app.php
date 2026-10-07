@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\RoleMiddleware::class,
         ]);
 
+        // Signs out students whose record was archived, even mid-session.
+        $middleware->web(append: [
+            \App\Http\Middleware\EnsureStudentNotArchived::class,
+        ]);
+
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

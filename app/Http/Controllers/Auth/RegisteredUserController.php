@@ -30,11 +30,32 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        /*
+        |--------------------------------------------------------------------------
+        | Archived record check
+        |--------------------------------------------------------------------------
+        | Must run BEFORE validate(): the unique rules below would otherwise
+        | report a vague "already taken" for an archived student number/email.
+        */
+
+        $isArchived = Student::onlyArchived()
+                ->where('student_number', $request->input('student_number'))
+                ->exists()
+            || Student::onlyArchived()
+                ->whereHas('user', fn ($q) => $q->where('email', $request->input('email')))
+                ->exists();
+
+        if ($isArchived) {
+            throw ValidationException::withMessages([
+                'student_number' => 'This student record is archived. Please contact the administrator.',
+            ]);
+        }
+
         $request->validate([
             'first_name'      => ['required', 'string', 'max:255'],
             'middle_name'     => ['nullable', 'string', 'max:255'],
             'last_name'       => ['required', 'string', 'max:255'],
-            'student_number'  => ['required', 'string', 'max:255'],
+            'student_number'  => ['required', 'string', 'max:255', 'unique:students,student_number'],
             'course'          => ['required', 'string'],
             'year_level'      => ['required'],
             'program_type'    => ['required', 'string'],
@@ -72,31 +93,29 @@ class RegisteredUserController extends Controller
         |--------------------------------------------------------------------------
         */
 
-       Student::create([
-    'user_id' => $user->id,
+        Student::create([
+            'user_id' => $user->id,
 
-    'student_number' => $request->student_number,
-    'reference_number' => 'INT-' . time(),
+            'student_number' => $request->student_number,
+            'reference_number' => 'INT-' . time(),
 
-    'first_name' => $request->first_name,
-    'middle_name' => $request->middle_name,
-    'last_name' => $request->last_name,
+            'first_name' => $request->first_name,
+            'middle_name' => $request->middle_name,
+            'last_name' => $request->last_name,
 
-    'program' => $request->course,
-    'year_level' => $request->year_level,
-    'program_type' => $request->program_type,
+            'program' => $request->course,
+            'year_level' => $request->year_level,
+            'program_type' => $request->program_type,
 
-    
+            'field_study_hours' => 0,
+            'internship_hours' => 0,
 
-    'field_study_hours' => 0,
-    'internship_hours' => 0,
-
-    'is_eligible' => false,
-    'status' => 'active',
-]);
+            'is_eligible' => false,
+            'status' => 'active',
+        ]);
 
         event(new Registered($user));
 
         return redirect()->route('register.success');
     }
-} 
+}

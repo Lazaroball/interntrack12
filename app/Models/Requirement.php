@@ -22,6 +22,7 @@ class Requirement extends Model
         'requirement_definition_id',
         'requirement_name',          // kept for backward compatibility; no longer written by new submissions
         'file_path',
+        'original_name',             // the file name the student uploaded
         'status',
         'remarks',                   // coordinator notes (shown to the student on rejection)
         'submitted_at',
@@ -85,5 +86,17 @@ class Requirement extends Model
     public function getNeedsReviewAttribute(): bool
     {
         return in_array($this->status, self::NEEDS_REVIEW, true);
+    }
+
+    /** The name the student uploaded. Older rows fall back to the stored name. */
+    public function getDisplayNameAttribute(): string
+    {
+        return $this->original_name ?: basename((string) $this->file_path);
+    }
+
+    /** Lower-case extension of the stored file (png, docx, xlsx...). */
+    public function getFileExtensionAttribute(): string
+    {
+        return strtolower(pathinfo((string) $this->file_path, PATHINFO_EXTENSION));
     }
 }

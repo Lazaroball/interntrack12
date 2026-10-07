@@ -9,6 +9,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>[x-cloak] { display: none !important; }</style>
+    @include('partials.file-viewer-script')
 </head>
 
 @php
@@ -56,6 +57,8 @@
             'empty'       => 'No ongoing requirements are currently available.',
         ],
     ];
+
+    $acceptAttr = '.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx';
 @endphp
 
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
@@ -161,6 +164,14 @@
                             $isLocked   = $submission?->status === 'approved';
                             $isRejected = $submission?->status === 'rejected';
                             $hasNotes   = filled($submission?->remarks);
+
+                            $viewerPayload = $submission?->file_path ? [
+                                'title'       => $definition->name,
+                                'name'        => $submission->display_name,
+                                'ext'         => $submission->file_extension,
+                                'url'         => route('student.field-study.requirements.file', $submission),
+                                'downloadUrl' => route('student.field-study.requirements.file', ['requirement' => $submission, 'download' => 1]),
+                            ] : null;
                         @endphp
 
                         <div class="p-6" x-data="{ editing: @js($isRejected) }">
@@ -206,12 +217,20 @@
                                 </div>
                             @endif
 
-                            <div class="mt-4 flex items-center gap-3 flex-wrap">
-                                @if ($submission?->file_path)
-                                    <a href="{{ route('student.field-study.requirements.file', $submission) }}"
-                                       target="_blank"
-                                       class="text-blue-600 hover:text-blue-700 font-semibold text-xs">
-                                        View Submitted File
+                            @if ($submission?->file_path)
+                                <p class="mt-3 text-xs text-slate-500 break-all">{{ $submission->display_name }}</p>
+                            @endif
+
+                            <div class="mt-3 flex items-center gap-3 flex-wrap">
+                                @if ($viewerPayload)
+                                    <button type="button"
+                                            @click="$dispatch('open-file', @js($viewerPayload))"
+                                            class="text-blue-600 hover:text-blue-700 font-semibold text-xs">
+                                        View File
+                                    </button>
+                                    <a href="{{ $viewerPayload['downloadUrl'] }}"
+                                       class="text-slate-500 hover:text-slate-700 font-semibold text-xs">
+                                        Download
                                     </a>
                                 @endif
 
@@ -230,7 +249,7 @@
                                     <form method="POST" action="{{ $storeRoute }}" enctype="multipart/form-data" class="flex items-center gap-2 flex-wrap">
                                         @csrf
                                         <input type="hidden" name="requirement_definition_id" value="{{ $definition->id }}">
-                                        <input type="file" name="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required
+                                        <input type="file" name="file" accept="{{ $acceptAttr }}" required
                                                class="text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0
                                                       file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100
                                                       border border-slate-200 rounded-lg">
@@ -255,7 +274,7 @@
                                           class="flex items-center gap-2 flex-wrap">
                                         @csrf
                                         <input type="hidden" name="requirement_definition_id" value="{{ $definition->id }}">
-                                        <input type="file" name="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required
+                                        <input type="file" name="file" accept="{{ $acceptAttr }}" required
                                                class="text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0
                                                       file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100
                                                       border border-slate-200 rounded-lg">
@@ -272,7 +291,7 @@
                             </div>
 
                             @if (! $isLocked && ! $stageClosed)
-                                <p class="mt-2 text-[11px] text-slate-400">Accepted files: PDF, DOC, DOCX, JPG, PNG (max 5 MB).</p>
+                                <p class="mt-2 text-[11px] text-slate-400">Accepted files: images (JPG, PNG), Word (DOC, DOCX) and Excel (XLS, XLSX), max 5 MB.</p>
                             @endif
                         </div>
                     @empty
@@ -284,6 +303,49 @@
     @endforeach
 
 </main>
+
+{{-- ── In-page file viewer (no new tab, no download needed) ── --}}
+<div x-data="{
+        open: false,
+        f: null,
+        show(file) {
+            this.f = file;
+            this.open = true;
+            this.$nextTick(() => window.renderFilePreview(this.$refs.box, file));
+        },
+        close() { this.open = false; }
+     }"
+     @open-file.window="show($event.detail)"
+     @keydown.escape.window="close()"
+     x-effect="document.body.classList.toggle('overflow-hidden', open)"
+     x-show="open" x-cloak
+     class="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center bg-slate-900/60 sm:p-6">
+
+    <div @click.outside="close()"
+         class="flex flex-col w-full sm:max-w-4xl h-full sm:h-[85vh] bg-white sm:rounded-2xl overflow-hidden shadow-xl">
+
+        <div class="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-100">
+            <div class="min-w-0">
+                <p class="text-sm font-bold text-slate-800 truncate" x-text="f ? f.title : ''"></p>
+                <p class="text-xs text-slate-400 truncate" x-text="f ? f.name : ''"></p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <a :href="f ? f.downloadUrl : '#'"
+                   class="px-3 py-1.5 rounded-lg border-2 border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold">
+                    Download
+                </a>
+                <button type="button" @click="close()"
+                        class="px-3 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-semibold">
+                    Close
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-auto bg-slate-100">
+            <div x-ref="box" class="min-h-full"></div>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

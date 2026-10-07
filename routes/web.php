@@ -6,6 +6,7 @@ use App\Http\Controllers\ProfileController;
 
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\Admin\StudentRecordController;
 
 // Coordinator
 use App\Http\Controllers\CoordinatorDashboardController;
@@ -74,6 +75,17 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
         ->name('admin.dashboard');
 });
+
+
+// Student record controller
+Route::prefix('admin/student-records')
+    ->name('admin.student-records.')
+    ->group(function () {
+        Route::get('/', [StudentRecordController::class, 'index'])->name('index');
+        Route::post('/archive', [StudentRecordController::class, 'archive'])->name('archive');
+        Route::post('/restore', [StudentRecordController::class, 'restore'])->name('restore');
+        Route::delete('/force-delete', [StudentRecordController::class, 'forceDelete'])->name('force-delete');
+    });
 
 /*
 |--------------------------------------------------------------------------

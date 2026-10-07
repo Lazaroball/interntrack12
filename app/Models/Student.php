@@ -43,6 +43,9 @@ class Student extends Model
         'internship_supervisor_passed_at',
         'internship_supervisor_passed_by',
         'internship_completed_at',
+        // for Admin record delete
+        'archived_at', 'archived_by', 'archive_reason', 'archive_remarks',
+        'archive_batch', 'user_status_before_archive',
     ];
 
     protected $casts = [
@@ -58,6 +61,10 @@ class Student extends Model
         'internship_coordinator_passed_at' => 'datetime',
         'internship_supervisor_passed_at'  => 'datetime',
         'internship_completed_at'          => 'datetime',
+        
+        // for admin record delete
+        'archived_at'                => 'datetime',
+        'user_status_before_archive' => 'boolean',
     ];
 
     /*
@@ -321,4 +328,15 @@ class Student extends Model
             throw new DomainException('All required Internship requirements must be approved first.');
         }
     }
+
+    // for admin delete record
+public function archivedBy()
+{
+    return $this->belongsTo(User::class, 'archived_by');
+}
+
+public function getIsArchivedAttribute(): bool
+{
+    return $this->archived_at !== null;
+}
 }

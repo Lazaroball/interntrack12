@@ -9,10 +9,14 @@ use App\Models\Student;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class RequirementController extends Controller
 {
     private const STAGES = ['Field Study', 'Internship'];
+
+    /** Images, Word and Excel only. */
+    private const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'doc', 'docx', 'xls', 'xlsx'];
 
     private const INTERNSHIP_LOCKED_MESSAGE = 'Internship unlocks after the coordinator clears your Field Study.';
 
@@ -146,7 +150,10 @@ class RequirementController extends Controller
 
         $validated = $request->validate([
             'requirement_definition_id' => ['required', 'exists:requirement_definitions,id'],
-            'file'                       => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
+            'file'                       => ['required', 'file', 'mimes:' . implode(',', self::ALLOWED_EXTENSIONS), 'max:5120'],
+        ], [
+            'file.mimes' => 'Only images (JPG, PNG), Word (DOC, DOCX) and Excel (XLS, XLSX) files are allowed.',
+            'file.max'   => 'The file must not be larger than 5 MB.',
         ]);
 
         $definition = RequirementDefinition::active()
@@ -191,8 +198,22 @@ class RequirementController extends Controller
                 => Requirement::STATUS_PENDING,
         };
 
-        $oldPath    = $existing?->file_path;
-        $storedPath = $request->file('file')->store("requirements/{$student->id}", 'local');
+        $file = $request->file('file');
+
+        // The random name stays on disk (safe, no collisions).
+        // The student's real file name is saved in the database.
+        $extension = strtolower($file->getClientOriginalExtension());
+        if (! in_array($extension, self::ALLOWED_EXTENSIONS, true)) {
+            $extension = $file->guessExtension() ?: 'bin';
+        }
+
+        $oldPath      = $existing?->file_path;
+        $originalName = Str::limit($file->getClientOriginalName(), 250, '');
+        $storedPath   = $file->storeAs(
+            "requirements/{$student->id}",
+            Str::random(40) . '.' . $extension,
+            'local'
+        );
 
         Requirement::updateOrCreate(
             [
@@ -200,11 +221,12 @@ class RequirementController extends Controller
                 'requirement_definition_id' => $definition->id,
             ],
             [
-                'file_path'    => $storedPath,
-                'status'       => $newStatus,
-                'submitted_at' => now(),
-                'reviewed_at'  => null,
-                'reviewed_by'  => null,
+                'file_path'     => $storedPath,
+                'original_name' => $originalName,
+                'status'        => $newStatus,
+                'submitted_at'  => now(),
+                'reviewed_at'   => null,
+                'reviewed_by'   => null,
             ]
         );
 
@@ -232,7 +254,11 @@ class RequirementController extends Controller
             ->with('success', $message);
     }
 
-    public function show(Requirement $requirement)
+    /**
+     * Stream the student's own file. Inline by default (so the page can show it),
+     * or as a download with ?download=1. Both use the original file name.
+     */
+    public function show(Request $request, Requirement $requirement)
     {
         $student = $this->currentStudent();
 
@@ -240,6 +266,14 @@ class RequirementController extends Controller
         abort_if(empty($requirement->file_path), 404, 'No file submitted for this requirement.');
         abort_unless(Storage::disk('local')->exists($requirement->file_path), 404, 'File not found.');
 
-        return Storage::disk('local')->response($requirement->file_path);
+        $name = $requirement->display_name;
+
+        if ($request->boolean('download')) {
+            return Storage::disk('local')->download($requirement->file_path, $name);
+        }
+
+        return Storage::disk('local')->response($requirement->file_path, $name, [
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 }

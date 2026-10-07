@@ -40,18 +40,28 @@
 
             {{-- Center nav links --}}
             <nav class="hidden md:flex items-center gap-1" aria-label="Main navigation">
-                <a href="#"
+                <a href="{{ route('admin.dashboard') }}"
                    class="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white bg-blue-600
                           focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1">
                     Dashboard
                 </a>
-               {{-- Center nav links 
+
+                {{-- Student Records (archive / restore / permanent delete) --}}
+                <a href="{{ route('admin.student-records.index') }}"
+                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500
+                          hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150
+                          focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1">
+                    Student Records
+                </a>
+
+                {{-- Students (hidden for now)
                 <a href="#"
                    class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500
                           hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150
                           focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1">
-                    Students --}}
-                </a>
+                    Students
+                </a> --}}
+
                 <a href="#"
                    class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500
                           hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150
@@ -64,14 +74,14 @@
                           focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1">
                     Coordinators
                 </a>
-                {{-- Center nav links 
+
+                {{-- Reports (hidden for now)
                 <a href="#"
                    class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500
                           hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150
                           focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1">
-                    
-                    Reports --}}
-                </a>
+                    Reports
+                </a> --}}
             </nav>
 
             {{-- Right: last login + avatar --}}
@@ -492,6 +502,27 @@
                     </div>
                 </a>
 
+                {{-- Student Records --}}
+                <a href="{{ route('admin.student-records.index') }}"
+                   class="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200
+                          hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700
+                          text-slate-700 transition-all duration-150 group
+                          focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                             stroke="#059669" stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round" class="w-4 h-4">
+                            <polyline points="21 8 21 21 3 21 3 8"/>
+                            <rect x="1" y="3" width="22" height="5"/>
+                            <line x1="10" y1="12" x2="14" y2="12"/>
+                        </svg>
+                    </div>
+                    <div class="leading-tight">
+                        <p class="text-sm font-semibold">Student Records</p>
+                        <p class="text-[11px] text-slate-400">Archive, restore or delete students</p>
+                    </div>
+                </a>
+
                 {{-- Review Requests --}}
                 <a href="#"
                    class="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200
@@ -512,9 +543,9 @@
                             {{ $stats['pending_requests'] ?? 0 }} pending approval
                         </p>
                     </div>
-                </a> 
+                </a>
 
-                {{-- Generate Report 
+                {{-- Generate Report (hidden for now)
                 <a href="#"
                    class="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200
                           hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700
@@ -537,7 +568,7 @@
                     </div>
                 </a> --}}
 
-                {{-- System Settings    
+                {{-- System Settings (hidden for now)
                 <a href="#"
                    class="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200
                           hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700
@@ -566,7 +597,7 @@
                 </a> --}}
 
             </div>
-        </div> 
+        </div>
 
         {{-- System Overview / Info Panel --}}
         <div class="lg:col-span-2 flex flex-col gap-6">
@@ -592,7 +623,7 @@
                             @php
                                 $fsTotal = $stats['field_study_total'] ?? 0;
                                 $fsPct   = $fsTotal > 0
-                                    ? round(($stats['field_study_deployed'] / $fsTotal) * 100)
+                                    ? round((($stats['field_study_deployed'] ?? 0) / $fsTotal) * 100)
                                     : 0;
                             @endphp
                             <div class="h-full bg-blue-500 rounded-full transition-all duration-500"
@@ -613,7 +644,7 @@
                             @php
                                 $intTotal = $stats['internship_total'] ?? 0;
                                 $intPct   = $intTotal > 0
-                                    ? round(($stats['internship_deployed'] / $intTotal) * 100)
+                                    ? round((($stats['internship_deployed'] ?? 0) / $intTotal) * 100)
                                     : 0;
                             @endphp
                             <div class="h-full bg-sky-400 rounded-full transition-all duration-500"
@@ -634,7 +665,7 @@
                             @php
                                 $compTotal = $stats['total_students'] ?? 0;
                                 $compPct   = $compTotal > 0
-                                    ? round(($stats['completed_internships'] / $compTotal) * 100)
+                                    ? round((($stats['completed_internships'] ?? 0) / $compTotal) * 100)
                                     : 0;
                             @endphp
                             <div class="h-full bg-emerald-500 rounded-full transition-all duration-500"
