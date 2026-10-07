@@ -166,7 +166,7 @@ class StudentRecordController extends Controller
     }
 
     // ─────────────────────────────────────────────
-    //  RESTORE
+    //  RESTOR
     // ─────────────────────────────────────────────
     public function restore(Request $request)
     {
