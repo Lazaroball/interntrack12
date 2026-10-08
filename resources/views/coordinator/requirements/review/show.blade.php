@@ -11,30 +11,23 @@
     <style>
         [x-cloak] { display: none !important; }
 
-        /* Two-column layout: checklist + viewer (does not depend on the Tailwind build) */
-        .review-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+        /* File viewer popup (does not depend on the Tailwind build) */
+        .fv-overlay {
+            position: fixed; inset: 0; z-index: 50;
+            display: flex; align-items: stretch; justify-content: center;
+            background: rgba(15, 23, 42, 0.6);
+        }
+        .fv-dialog {
+            display: flex; flex-direction: column;
+            width: 100%; height: 100%;
+            background: #fff; overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+        .fv-body { flex: 1 1 auto; overflow: auto; background: #f1f5f9; min-height: 0; }
 
-        /* File viewer: hidden on phone until opened, full-screen when open */
-        .file-viewer { display: none; flex-direction: column; background: #fff; overflow: hidden; }
-        .file-viewer.is-open { display: flex; position: fixed; inset: 0; z-index: 50; }
-
-        @media (min-width: 1024px) {
-            .review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-
-            /* Desktop: always visible, sticky beside the checklist */
-            .file-viewer,
-            .file-viewer.is-open {
-                display: flex;
-                position: sticky;
-                inset: auto;
-                top: 1rem;
-                z-index: 10;
-                height: calc(100vh - 2rem);
-                border: 1px solid #f1f5f9;
-                border-radius: 1rem;
-                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-            }
-            .file-viewer-close { display: none; }
+        @media (min-width: 640px) {
+            .fv-overlay { align-items: center; padding: 1.5rem; }
+            .fv-dialog { max-width: 56rem; height: 85vh; border-radius: 1rem; }
         }
     </style>
     @include('partials.file-viewer-script')
@@ -76,7 +69,7 @@
 
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
 
-<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+<main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
     <div class="flex items-center justify-between">
         <div>
@@ -218,219 +211,216 @@
         @endif
     </div>
 
-    {{-- ── Checklist (left) + File viewer (right on desktop, full-screen on phone) ── --}}
-    <div class="review-grid">
-
-        {{-- Requirement Checklist --}}
-        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 overflow-hidden">
-            <div class="px-6 py-4 bg-slate-50 border-b border-slate-100">
-                <h2 class="text-sm font-bold text-slate-800">{{ $stage }} Requirements</h2>
-            </div>
-
-            <div>
-                @forelse ($groupedDefinitions as $phase => $group)
-                    <div class="px-6 pt-5 pb-1 {{ ! $loop->first ? 'border-t border-slate-100' : '' }}">
-                        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                            {{ $phase === 'ongoing' ? 'Ongoing Requirements' : 'Initial Requirements' }}
-                        </p>
-                    </div>
-
-                    <div class="divide-y divide-slate-50">
-                        @foreach ($group as $definition)
-                            @php
-                                $submission = $submissions->get($definition->id);
-                                $meta       = $submission ? ($statusMeta[$submission->status] ?? $statusMeta['pending']) : $notSubmittedMeta;
-                                $status     = $submission?->status;
-                                $hasNotes   = filled($submission?->remarks);
-
-                                $viewerPayload = $submission && $submission->file_path ? [
-                                    'title'       => $definition->name,
-                                    'name'        => $submission->display_name,
-                                    'ext'         => $submission->file_extension,
-                                    'url'         => route('coordinator.requirements.review.file', $submission),
-                                    'downloadUrl' => route('coordinator.requirements.review.file', ['requirement' => $submission, 'download' => 1]),
-                                    'updateUrl'   => route('coordinator.requirements.review.update-submission', $submission),
-                                    'canReview'   => in_array($status, ['pending', 'resubmitted'], true),
-                                    'status'      => $meta['label'],
-                                ] : null;
-                            @endphp
-
-                            <div class="p-6" x-data="{ reopen: false, notes: '' }">
-                                <div class="flex items-start justify-between gap-4 flex-wrap">
-                                    <div>
-                                        <p class="text-sm font-bold text-slate-800">{{ $definition->name }}</p>
-                                        <p class="text-xs font-semibold {{ $definition->is_required ? 'text-red-500' : 'text-slate-400' }} mt-0.5">
-                                            {{ $definition->is_required ? 'Required' : 'Optional' }}
-                                        </p>
-                                    </div>
-
-                                    <div class="text-right">
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ring-1 {{ $meta['class'] }}">
-                                            {{ $meta['label'] }}
-                                        </span>
-                                        @if ($submission)
-                                            <p class="text-xs text-slate-400 mt-1.5">
-                                                {{ $status === 'resubmitted' ? 'Resubmitted' : 'Submitted' }}
-                                                {{ $submission->submitted_at?->format('M d, Y') }}
-                                            </p>
-                                        @endif
-                                    </div>
-                                </div>
-
-                                @if ($submission)
-                                    {{-- File name the student uploaded --}}
-                                    <p class="mt-2 text-xs text-slate-500 break-all">{{ $submission->display_name }}</p>
-
-                                    {{-- Notes already sent to the student --}}
-                                    @if ($hasNotes && in_array($status, ['rejected', 'resubmitted'], true))
-                                        <div class="mt-3 px-4 py-3 rounded-xl border text-xs
-                                                    {{ $status === 'rejected' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-slate-50 border-slate-200 text-slate-500' }}">
-                                            <p class="font-bold">
-                                                {{ $status === 'rejected' ? 'Notes sent to the student' : 'Your earlier notes (student has resubmitted)' }}
-                                            </p>
-                                            <p class="mt-1 whitespace-pre-line">{{ $submission->remarks }}</p>
-                                        </div>
-                                    @endif
-
-                                    <div class="mt-4 flex items-center gap-3 flex-wrap">
-                                        @if ($viewerPayload)
-                                            <button type="button"
-                                                    @click="$dispatch('open-file', @js($viewerPayload))"
-                                                    class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors duration-150">
-                                                Show
-                                            </button>
-                                            <a href="{{ $viewerPayload['downloadUrl'] }}"
-                                               class="px-3 py-1.5 rounded-lg border-2 border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors duration-150">
-                                                Download
-                                            </a>
-                                        @endif
-
-                                        @if ($status === 'approved')
-                                            <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                                                Approved. Locked for the student.
-                                            </span>
-                                            <button type="button" @click="reopen = !reopen"
-                                                    class="text-xs font-semibold text-red-600 hover:underline">
-                                                Reopen for correction
-                                            </button>
-
-                                        @elseif ($status === 'rejected')
-                                            <span class="text-xs font-semibold text-slate-400">Waiting for the student to resubmit.</span>
-
-                                        @else
-                                            <span class="text-xs text-slate-400">Open the file to approve it or request a resubmission.</span>
-                                        @endif
-                                    </div>
-
-                                    {{-- Reopen form: approved --}}
-                                    @if ($status === 'approved')
-                                        <form method="POST"
-                                              action="{{ route('coordinator.requirements.review.update-submission', $submission) }}"
-                                              x-show="reopen" x-cloak
-                                              onsubmit="return confirm('Reopen this approved document? The student will be able to replace the file.');"
-                                              class="mt-4 space-y-3">
-                                            @csrf
-                                            @method('PATCH')
-
-                                            <textarea name="remarks" x-model="notes" rows="2" maxlength="1000"
-                                                      placeholder="Tell the student what needs to be corrected"
-                                                      class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 placeholder-slate-400
-                                                             focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none"></textarea>
-
-                                            <div class="flex items-center gap-2">
-                                                <button type="submit" name="status" value="rejected"
-                                                        class="px-3 py-1.5 rounded-lg border-2 border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold transition-colors duration-150">
-                                                    Reopen and Request Resubmission
-                                                </button>
-                                                <button type="button" @click="reopen = false"
-                                                        class="px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 text-xs font-semibold">
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        </form>
-                                    @endif
-                                @endif
-                            </div>
-                        @endforeach
-                    </div>
-                @empty
-                    <p class="p-6 text-sm text-slate-400 italic">No {{ $stage }} requirements have been configured yet.</p>
-                @endforelse
-            </div>
+    {{-- ── Requirement Checklist ── --}}
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 overflow-hidden">
+        <div class="px-6 py-4 bg-slate-50 border-b border-slate-100">
+            <h2 class="text-sm font-bold text-slate-800">{{ $stage }} Requirements</h2>
         </div>
 
-        {{-- File viewer: sticky side panel on desktop, full-screen on phone --}}
-        <aside x-data="{
-                    open: false,
-                    f: null,
-                    notes: '',
-                    show(file) {
-                        this.f = file;
-                        this.notes = '';
-                        this.open = true;
-                        this.$nextTick(() => window.renderFilePreview(this.$refs.box, file));
-                    },
-                    close() { this.open = false; }
-               }"
-               @open-file.window="show($event.detail)"
-               @keydown.escape.window="close()"
-               x-effect="document.body.classList.toggle('overflow-hidden', open && window.innerWidth < 1024)"
-               class="file-viewer"
-               :class="{ 'is-open': open }">
-
-            {{-- Header --}}
-            <div class="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-100">
-                <div class="min-w-0">
-                    <p class="text-sm font-bold text-slate-800 truncate" x-text="f ? f.title : 'File viewer'"></p>
-                    <p class="text-xs text-slate-400 truncate" x-show="f" x-text="f ? f.name : ''"></p>
+        <div>
+            @forelse ($groupedDefinitions as $phase => $group)
+                <div class="px-6 pt-5 pb-1 {{ ! $loop->first ? 'border-t border-slate-100' : '' }}">
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                        {{ $phase === 'ongoing' ? 'Ongoing Requirements' : 'Initial Requirements' }}
+                    </p>
                 </div>
-                <div class="flex items-center gap-2 flex-shrink-0">
-                    <a x-show="f" :href="f ? f.downloadUrl : '#'"
-                       class="px-3 py-1.5 rounded-lg border-2 border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold">
-                        Download
-                    </a>
-                    <button type="button" @click="close()"
-                            class="file-viewer-close px-3 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-semibold">
-                        Close
-                    </button>
+
+                <div class="divide-y divide-slate-50">
+                    @foreach ($group as $definition)
+                        @php
+                            $submission = $submissions->get($definition->id);
+                            $meta       = $submission ? ($statusMeta[$submission->status] ?? $statusMeta['pending']) : $notSubmittedMeta;
+                            $status     = $submission?->status;
+                            $hasNotes   = filled($submission?->remarks);
+
+                            $viewerPayload = $submission && $submission->file_path ? [
+                                'title'       => $definition->name,
+                                'name'        => $submission->display_name,
+                                'ext'         => $submission->file_extension,
+                                'url'         => route('coordinator.requirements.review.file', $submission),
+                                'downloadUrl' => route('coordinator.requirements.review.file', ['requirement' => $submission, 'download' => 1]),
+                                'updateUrl'   => route('coordinator.requirements.review.update-submission', $submission),
+                                'canReview'   => in_array($status, ['pending', 'resubmitted'], true),
+                                'status'      => $meta['label'],
+                            ] : null;
+                        @endphp
+
+                        <div class="p-6" x-data="{ reopen: false, notes: '' }">
+                            <div class="flex items-start justify-between gap-4 flex-wrap">
+                                <div>
+                                    <p class="text-sm font-bold text-slate-800">{{ $definition->name }}</p>
+                                    <p class="text-xs font-semibold {{ $definition->is_required ? 'text-red-500' : 'text-slate-400' }} mt-0.5">
+                                        {{ $definition->is_required ? 'Required' : 'Optional' }}
+                                    </p>
+                                </div>
+
+                                <div class="text-right">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ring-1 {{ $meta['class'] }}">
+                                        {{ $meta['label'] }}
+                                    </span>
+                                    @if ($submission)
+                                        <p class="text-xs text-slate-400 mt-1.5">
+                                            {{ $status === 'resubmitted' ? 'Resubmitted' : 'Submitted' }}
+                                            {{ $submission->submitted_at?->format('M d, Y') }}
+                                        </p>
+                                    @endif
+                                </div>
+                            </div>
+
+                            @if ($submission)
+                                {{-- File name the student uploaded --}}
+                                <p class="mt-2 text-xs text-slate-500 break-all">{{ $submission->display_name }}</p>
+
+                                {{-- Notes already sent to the student --}}
+                                @if ($hasNotes && in_array($status, ['rejected', 'resubmitted'], true))
+                                    <div class="mt-3 px-4 py-3 rounded-xl border text-xs
+                                                {{ $status === 'rejected' ? 'bg-red-50 border-red-200 text-red-600' : 'bg-slate-50 border-slate-200 text-slate-500' }}">
+                                        <p class="font-bold">
+                                            {{ $status === 'rejected' ? 'Notes sent to the student' : 'Your earlier notes (student has resubmitted)' }}
+                                        </p>
+                                        <p class="mt-1 whitespace-pre-line">{{ $submission->remarks }}</p>
+                                    </div>
+                                @endif
+
+                                <div class="mt-4 flex items-center gap-3 flex-wrap">
+                                    @if ($viewerPayload)
+                                        <button type="button"
+                                                @click="$dispatch('open-file', @js($viewerPayload))"
+                                                class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors duration-150">
+                                            Show
+                                        </button>
+                                        <a href="{{ $viewerPayload['downloadUrl'] }}"
+                                           class="px-3 py-1.5 rounded-lg border-2 border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors duration-150">
+                                            Download
+                                        </a>
+                                    @endif
+
+                                    @if ($status === 'approved')
+                                        <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                            Approved. Locked for the student.
+                                        </span>
+                                        <button type="button" @click="reopen = !reopen"
+                                                class="text-xs font-semibold text-red-600 hover:underline">
+                                            Reopen for correction
+                                        </button>
+
+                                    @elseif ($status === 'rejected')
+                                        <span class="text-xs font-semibold text-slate-400">Waiting for the student to resubmit.</span>
+
+                                    @else
+                                        <span class="text-xs text-slate-400">Open the file to approve it or request a resubmission.</span>
+                                    @endif
+                                </div>
+
+                                {{-- Reopen form: approved --}}
+                                @if ($status === 'approved')
+                                    <form method="POST"
+                                          action="{{ route('coordinator.requirements.review.update-submission', $submission) }}"
+                                          x-show="reopen" x-cloak
+                                          onsubmit="return confirm('Reopen this approved document? The student will be able to replace the file.');"
+                                          class="mt-4 space-y-3">
+                                        @csrf
+                                        @method('PATCH')
+
+                                        <textarea name="remarks" x-model="notes" rows="2" maxlength="1000"
+                                                  placeholder="Tell the student what needs to be corrected"
+                                                  class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 placeholder-slate-400
+                                                         focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none"></textarea>
+
+                                        <div class="flex items-center gap-2">
+                                            <button type="submit" name="status" value="rejected"
+                                                    class="px-3 py-1.5 rounded-lg border-2 border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold transition-colors duration-150">
+                                                Reopen and Request Resubmission
+                                            </button>
+                                            <button type="button" @click="reopen = false"
+                                                    class="px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 text-xs font-semibold">
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </form>
+                                @endif
+                            @endif
+                        </div>
+                    @endforeach
                 </div>
-            </div>
-
-            {{-- Preview --}}
-            <div class="flex-1 overflow-auto bg-slate-100">
-                <p x-show="!f" class="p-8 text-center text-sm text-slate-400 italic">
-                    Select Show on a requirement to view the file here.
-                </p>
-                <div x-ref="box" class="min-h-full"></div>
-            </div>
-
-            {{-- Approve / Request Resubmission --}}
-            <form x-show="f && f.canReview" x-cloak method="POST" :action="f ? f.updateUrl : '#'"
-                  class="p-4 border-t border-slate-100 bg-white space-y-3">
-                @csrf
-                @method('PATCH')
-
-                <textarea name="remarks" x-model="notes" rows="2" maxlength="1000"
-                          placeholder="Notes for the student"
-                          class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 placeholder-slate-400
-                                 focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none"></textarea>
-
-                <div class="flex items-center gap-2 flex-wrap">
-                    <button type="submit" name="status" value="approved"
-                            class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors duration-150">
-                        Approve
-                    </button>
-                    <button type="submit" name="status" value="rejected"
-                            class="px-4 py-2 rounded-lg border-2 border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold transition-colors duration-150">
-                        Request Resubmission
-                    </button>
-                </div>
-            </form>
-        </aside>
+            @empty
+                <p class="p-6 text-sm text-slate-400 italic">No {{ $stage }} requirements have been configured yet.</p>
+            @endforelse
+        </div>
     </div>
 
 </main>
+
+{{-- ── In-page file viewer popup (same design as the student page) ── --}}
+<div x-data="{
+        open: false,
+        f: null,
+        notes: '',
+        show(file) {
+            this.f = file;
+            this.notes = '';
+            this.open = true;
+            this.$nextTick(() => window.renderFilePreview(this.$refs.box, file));
+        },
+        close() { this.open = false; }
+     }"
+     @open-file.window="show($event.detail)"
+     @keydown.escape.window="close()"
+     x-effect="document.body.classList.toggle('overflow-hidden', open)"
+     x-show="open" x-cloak
+     @click.self="close()"
+     class="fv-overlay">
+
+    <div class="fv-dialog">
+
+        {{-- Header --}}
+        <div class="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-100">
+            <div class="min-w-0">
+                <p class="text-sm font-bold text-slate-800 truncate" x-text="f ? f.title : ''"></p>
+                <p class="text-xs text-slate-400 truncate" x-text="f ? f.name : ''"></p>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                <a :href="f ? f.downloadUrl : '#'"
+                   class="px-3 py-1.5 rounded-lg border-2 border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold">
+                    Download
+                </a>
+                <button type="button" @click="close()"
+                        class="px-3 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-semibold">
+                    Close
+                </button>
+            </div>
+        </div>
+
+        {{-- Preview --}}
+        <div class="fv-body">
+            <div x-ref="box" class="min-h-full"></div>
+        </div>
+
+        {{-- Approve / Request Resubmission --}}
+        <form x-show="f && f.canReview" x-cloak method="POST" :action="f ? f.updateUrl : '#'"
+              class="p-4 border-t border-slate-100 bg-white space-y-3">
+            @csrf
+            @method('PATCH')
+
+            <textarea name="remarks" x-model="notes" rows="2" maxlength="1000"
+                      placeholder="Notes for the student"
+                      class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 placeholder-slate-400
+                             focus:ring-2 focus:ring-blue-300 focus:border-blue-400 outline-none"></textarea>
+
+            <div class="flex items-center gap-2 flex-wrap">
+                <button type="submit" name="status" value="approved"
+                        class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors duration-150">
+                    Approve
+                </button>
+                <button type="submit" name="status" value="rejected"
+                        class="px-4 py-2 rounded-lg border-2 border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold transition-colors duration-150">
+                    Request Resubmission
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 </body>
 </html>
