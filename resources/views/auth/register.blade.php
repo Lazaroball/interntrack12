@@ -200,6 +200,41 @@
                 @enderror
             </div>
 
+            {{-- Block --}}
+            <div class="flex flex-col gap-1.5">
+                <label for="block" class="text-sm font-semibold text-slate-700 tracking-wide">
+                    Block <span class="text-blue-500 font-bold" aria-hidden="true">*</span>
+                </label>
+                <select
+                    id="block"
+                    name="block"
+                    required
+                    class="w-full px-3.5 py-2.5 rounded-xl border-2 text-sm text-slate-800
+                           outline-none transition-all duration-200
+                           focus:ring-2 focus:ring-blue-300 focus:border-blue-400
+                           @error('block') border-red-400 bg-red-50 @else border-slate-200 bg-white @enderror"
+                >
+                    <option value="">Select Block</option>
+                    @foreach (range(1, 10) as $number)
+                        <option value="{{ $number }}" {{ (string) old('block') === (string) $number ? 'selected' : '' }}>
+                            {{ $number }}
+                        </option>
+                    @endforeach
+                </select>
+                @error('block')
+                    <p role="alert" class="flex items-center gap-1.5 text-xs font-medium text-red-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                             stroke-linejoin="round" class="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                        {{ $message }}
+                    </p>
+                @enderror
+            </div>
+
             {{-- Program Type --}}
 <div class="flex flex-col gap-1.5">
     <label for="program_type" class="text-sm font-semibold text-slate-700 tracking-wide">

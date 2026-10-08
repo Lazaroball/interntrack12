@@ -58,6 +58,7 @@ class RegisteredUserController extends Controller
             'student_number'  => ['required', 'string', 'max:255', 'unique:students,student_number'],
             'course'          => ['required', 'string'],
             'year_level'      => ['required'],
+            'block'           => ['required', 'in:' . implode(',', range(1, 10))],
             'program_type'    => ['required', 'string'],
             'mobile_number'   => ['required', 'string', 'max:20'],
             'email'           => ['required', 'email', 'unique:users,email'],
@@ -105,6 +106,7 @@ class RegisteredUserController extends Controller
 
             'program' => $request->course,
             'year_level' => $request->year_level,
+            'block' => $request->block,
             'program_type' => $request->program_type,
 
             'field_study_hours' => 0,

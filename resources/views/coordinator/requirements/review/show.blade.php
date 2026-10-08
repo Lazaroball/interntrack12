@@ -8,7 +8,35 @@
     <title>Review {{ $student->full_name }} – InternTrack</title>
     {{-- Alpine comes from app.js (the list page relies on it too), so it is not loaded again here. --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <style>[x-cloak] { display: none !important; }</style>
+    <style>
+        [x-cloak] { display: none !important; }
+
+        /* Two-column layout: checklist + viewer (does not depend on the Tailwind build) */
+        .review-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+
+        /* File viewer: hidden on phone until opened, full-screen when open */
+        .file-viewer { display: none; flex-direction: column; background: #fff; overflow: hidden; }
+        .file-viewer.is-open { display: flex; position: fixed; inset: 0; z-index: 50; }
+
+        @media (min-width: 1024px) {
+            .review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+            /* Desktop: always visible, sticky beside the checklist */
+            .file-viewer,
+            .file-viewer.is-open {
+                display: flex;
+                position: sticky;
+                inset: auto;
+                top: 1rem;
+                z-index: 10;
+                height: calc(100vh - 2rem);
+                border: 1px solid #f1f5f9;
+                border-radius: 1rem;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            }
+            .file-viewer-close { display: none; }
+        }
+    </style>
     @include('partials.file-viewer-script')
 </head>
 
@@ -191,7 +219,7 @@
     </div>
 
     {{-- ── Checklist (left) + File viewer (right on desktop, full-screen on phone) ── --}}
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+    <div class="review-grid">
 
         {{-- Requirement Checklist --}}
         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 overflow-hidden">
@@ -348,9 +376,8 @@
                @open-file.window="show($event.detail)"
                @keydown.escape.window="close()"
                x-effect="document.body.classList.toggle('overflow-hidden', open && window.innerWidth < 1024)"
-               :class="open ? 'fixed inset-0 z-50 flex' : 'hidden lg:flex'"
-               class="flex-col bg-white shadow-sm overflow-hidden
-                      lg:sticky lg:inset-auto lg:top-4 lg:z-10 lg:h-[calc(100vh-2rem)] lg:rounded-2xl lg:border lg:border-slate-100">
+               class="file-viewer"
+               :class="{ 'is-open': open }">
 
             {{-- Header --}}
             <div class="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-b border-slate-100">
@@ -364,7 +391,7 @@
                         Download
                     </a>
                     <button type="button" @click="close()"
-                            class="lg:hidden px-3 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-semibold">
+                            class="file-viewer-close px-3 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-semibold">
                         Close
                     </button>
                 </div>
