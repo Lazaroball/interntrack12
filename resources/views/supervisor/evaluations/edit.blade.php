@@ -13,58 +13,7 @@
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
 
 {{-- ══ NAV ══ --}}
-<header class="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-sm shadow-blue-50">
-    <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16">
-
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow shadow-blue-200 flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-5 h-5">
-                        <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
-                        <path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
-                    </svg>
-                </div>
-                <div class="leading-tight">
-                    <span class="text-base font-extrabold text-slate-800 tracking-tight">InternTrack</span>
-                    <span class="hidden sm:block text-[10px] font-semibold text-blue-500 tracking-widest uppercase -mt-0.5">UCU · CTE</span>
-                </div>
-            </div>
-
-            <nav class="hidden md:flex items-center gap-1" aria-label="Supervisor navigation">
-                <a href="{{ route('supervisor.dashboard') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">
-                    Dashboard
-                </a>
-                <a href="{{ route('supervisor.students.index') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">
-                    Students
-                </a>
-                @if (Route::has('supervisor.observations.index'))
-                    <a href="{{ route('supervisor.observations.index') }}"
-                       class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150">
-                        Observation
-                    </a>
-                @else
-                    <span class="px-3.5 py-1.5 rounded-lg text-sm font-medium text-slate-300 cursor-not-allowed">Observation</span>
-                @endif
-                <a href="{{ route('supervisor.evaluations.index') }}"
-                   class="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-white bg-blue-600">
-                    Evaluation
-                </a>
-            </nav>
-
-            <div class="flex items-center gap-3">
-                <div class="hidden sm:flex flex-col items-end leading-tight">
-                    <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Supervisor</span>
-                    <span class="text-xs font-semibold text-slate-700">{{ auth()->user()->first_name ?? 'Supervisor' }}</span>
-                </div>
-                <div class="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold select-none">
-                    {{ strtoupper(substr(auth()->user()->first_name ?? 'S', 0, 1)) }}
-                </div>
-            </div>
-        </div>
-    </div>
-</header>
+<x-supervisor-nav />
 
 <main class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
       x-data="evaluationEditForm({

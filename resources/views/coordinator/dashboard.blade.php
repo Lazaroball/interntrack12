@@ -118,15 +118,15 @@
         ];
     @endphp
 
-    <section aria-label="Statistics overview">
-        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+        <section aria-label="Statistics overview">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:1rem;">
             @foreach ($cards as $card)
-                <div class="col-span-1 bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50
-                            p-5 flex flex-col gap-3">
-                    <div class="w-10 h-10 rounded-xl {{ $card['bg'] }} flex items-center justify-center flex-shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                             stroke="{{ $card['stroke'] }}" stroke-width="2" stroke-linecap="round"
-                             stroke-linejoin="round" class="w-5 h-5">{!! $card['icon'] !!}</svg>
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-5 flex flex-col gap-3">
+                    <div class="rounded-xl {{ $card['bg'] }} flex items-center justify-center flex-shrink-0"
+                         style="width:40px; height:40px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20"
+                             fill="none" stroke="{{ $card['stroke'] }}" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round">{!! $card['icon'] !!}</svg>
                     </div>
                     <div>
                         <p class="text-2xl font-extrabold text-slate-800 leading-none">
@@ -140,7 +140,6 @@
             @endforeach
         </div>
     </section>
-
     {{-- ── Quick Actions + Deployment Overview ───────────────────── --}}
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-6" aria-label="Quick actions and deployment overview">
 

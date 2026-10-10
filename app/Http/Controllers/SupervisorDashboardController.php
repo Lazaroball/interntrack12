@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use App\Models\ObservationSchedule;
 use App\Models\Supervisor;
 use Illuminate\Http\Request;
 
@@ -99,8 +99,13 @@ class SupervisorDashboardController extends Controller
         |
         */
 
-        $pendingObservationsCount = null;
-        $completedObservationsCount = null;
+        $pendingObservationsCount = ObservationSchedule::where('supervisor_id', $supervisor->id)
+    ->scheduled()
+    ->count();
+
+$completedObservationsCount = ObservationSchedule::where('supervisor_id', $supervisor->id)
+    ->completed()
+    ->count();
 
         /*
         |--------------------------------------------------------------------------

@@ -6,6 +6,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Student Management – InternTrack</title>
+    <link rel="icon" href="{{ asset('images/CTE.jpg') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
@@ -23,12 +24,12 @@
             <h1 class="text-2xl font-extrabold text-slate-800 leading-tight">Student Management</h1>
             <p class="text-sm text-slate-400 mt-0.5">Monitor and manage all student interns</p>
         </div>
-        
+
         {{-- Import Action Button --}}
         <div class="flex items-center gap-2.5">
             <a href="{{ route('coordinator.students.import') }}"
-               class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl 
-                      bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-all duration-150 
+               class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl
+                      bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-all duration-150
                       shadow-sm shadow-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -41,14 +42,12 @@
     </div>
 
     {{-- ── Summary Stat Cards ── --}}
-    <div class="grid grid-cols-2 lg:grid-cols-6 gap-4">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         @foreach ([
-            ['label' => 'Total Students',      'value' => $counts['total'],                'dot' => 'bg-blue-500',      'pill' => 'bg-blue-50 text-blue-700'],
-            ['label' => 'Field Study',         'value' => $counts['field_study'],          'dot' => 'bg-indigo-500',    'pill' => 'bg-indigo-50 text-indigo-700'],
-            ['label' => 'Internships',         'value' => $counts['internship'],           'dot' => 'bg-sky-500',       'pill' => 'bg-sky-50 text-sky-700'],
-            ['label' => 'Reqs. Complete',      'value' => $counts['eligible'],             'dot' => 'bg-emerald-500',   'pill' => 'bg-emerald-50 text-emerald-700'],
-            ['label' => 'Reqs. Pending',       'value' => $counts['pending_requirements'], 'dot' => 'bg-rose-500',      'pill' => 'bg-rose-50 text-rose-700'],
-            ['label' => 'Deployed Students',   'value' => $counts['deployed'],             'dot' => 'bg-teal-500',      'pill' => 'bg-teal-50 text-teal-700'],
+            ['label' => 'Total Students',      'value' => $counts['total'],       'dot' => 'bg-blue-500',    'pill' => 'bg-blue-50 text-blue-700'],
+            ['label' => 'Field Study',         'value' => $counts['field_study'], 'dot' => 'bg-indigo-500',  'pill' => 'bg-indigo-50 text-indigo-700'],
+            ['label' => 'Internships',         'value' => $counts['internship'],  'dot' => 'bg-sky-500',     'pill' => 'bg-sky-50 text-sky-700'],
+            ['label' => 'Deployed Students',   'value' => $counts['deployed'],    'dot' => 'bg-teal-500',    'pill' => 'bg-teal-50 text-teal-700'],
         ] as $pill)
             <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 px-4 py-4 flex flex-col justify-between
                         hover:shadow-md hover:shadow-blue-100/60 hover:-translate-y-0.5 transition-all duration-200">
@@ -91,8 +90,8 @@
                            outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-300 focus:border-blue-400 min-w-[160px]">
                 <option value="newest"         {{ request('sort','newest') === 'newest'         ? 'selected' : '' }}>Newest First</option>
                 <option value="oldest"         {{ request('sort') === 'oldest'                  ? 'selected' : '' }}>Oldest First</option>
-                <option value="alphabetical"  {{ request('sort') === 'alphabetical'            ? 'selected' : '' }}>Alphabetical</option>
-                <option value="student_number"{{ request('sort') === 'student_number'          ? 'selected' : '' }}>Student Number</option>
+                <option value="alphabetical"   {{ request('sort') === 'alphabetical'            ? 'selected' : '' }}>Alphabetical</option>
+                <option value="student_number" {{ request('sort') === 'student_number'          ? 'selected' : '' }}>Student Number</option>
             </select>
         </div>
 
@@ -129,15 +128,6 @@
                 @endforeach
             </select>
 
-            {{-- Eligibility Filter --}}
-            <select name="is_eligible" onchange="autoSubmit()"
-                    class="px-3.5 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm text-slate-700
-                           outline-none transition-all duration-200 focus:ring-2 focus:ring-blue-300 focus:border-blue-400">
-                <option value="">All Eligibility</option>
-                <option value="1" {{ request('is_eligible') === '1' ? 'selected' : '' }}>Requirements Complete</option>
-                <option value="0" {{ request('is_eligible') === '0' ? 'selected' : '' }}>Requirements Pending</option>
-            </select>
-
             {{-- Deployment Status --}}
             <select name="deployment_status" onchange="autoSubmit()"
                     class="px-3.5 py-2 rounded-xl border-2 border-slate-200 bg-white text-sm text-slate-700
@@ -149,7 +139,7 @@
                 <option value="completed"    {{ request('deployment_status') === 'completed'    ? 'selected' : '' }}>Completed</option>
             </select>
 
-            @if (request()->hasAny(['search','sort','program','program_type','block','is_eligible','deployment_status']))
+            @if (request()->hasAny(['search','sort','program','program_type','block','deployment_status']))
                 <a href="{{ route('coordinator.students.index') }}"
                    class="px-4 py-2 rounded-xl border-2 border-slate-200 hover:bg-slate-100
                           text-slate-600 text-sm font-semibold transition-all duration-150 ml-auto">
@@ -180,7 +170,6 @@
                             <th class="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">Program</th>
                             <th class="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">Type</th>
                             <th class="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">Hours</th>
-                            <th class="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">Eligibility</th>
                             <th class="text-left px-4 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400 whitespace-nowrap">Deployment</th>
                             <th class="text-right px-6 py-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">Actions</th>
                         </tr>
@@ -247,19 +236,6 @@
                                     @endif
                                 </td>
 
-                                {{-- Eligibility Badge --}}
-                                <td class="px-4 py-4 whitespace-nowrap">
-                                    @if ($student->is_eligible)
-                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Requirements Complete
-                                        </span>
-                                    @else
-                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 text-rose-600 text-[11px] font-semibold">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>Requirements Pending
-                                        </span>
-                                    @endif
-                                </td>
-
                                 {{-- Deployment Badge --}}
                                 <td class="px-4 py-4 whitespace-nowrap">
                                     @if ($student->deployment)
@@ -284,21 +260,19 @@
                                     @endif
                                 </td>
 
-                                <!-- Action Buttons -->
+                                {{-- Action Buttons --}}
                                 <td class="px-6 py-4 whitespace-nowrap text-right">
                                     <div class="inline-flex items-center gap-2">
-                                        <!-- View Button -->
-                                        <a href="{{ route('coordinator.students.show', $student->id) }}" 
+                                        <a href="{{ route('coordinator.students.show', $student->id) }}"
                                            class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-xs font-bold
                                                   bg-blue-50 text-blue-700 border border-blue-200/60
                                                   hover:bg-blue-600 hover:text-white hover:border-blue-600
                                                   transition-all duration-150 shadow-sm shadow-blue-100/50">
                                             View
                                         </a>
-                                        
-                                        <!-- Deploy Button (Redirects to Deployment Index, passing student parameter if supported by index) -->
+
                                         @if ($student->deployment)
-                                            <a href="{{ route('coordinator.deployments.show', $student->deployment->id) }}" 
+                                            <a href="{{ route('coordinator.deployments.show', $student->deployment->id) }}"
                                                class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-xs font-bold
                                                       bg-indigo-50 text-indigo-700 border border-indigo-200/60
                                                       hover:bg-indigo-600 hover:text-white hover:border-indigo-600
@@ -306,7 +280,7 @@
                                                 Deployment
                                             </a>
                                         @else
-                                            <a href="{{ route('coordinator.deployments.index', ['search' => $student->student_number]) }}" 
+                                            <a href="{{ route('coordinator.deployments.index', ['search' => $student->student_number]) }}"
                                                class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-xs font-bold
                                                       bg-indigo-50 text-indigo-700 border border-indigo-200/60
                                                       hover:bg-indigo-600 hover:text-white hover:border-indigo-600
@@ -338,7 +312,7 @@
     </div>
 </main>
 
-{{-- ── Vanilla Javascript Dynamic Auto-Submit Behavior ── --}}
+{{-- ── Auto-Submit Behavior ── --}}
 <script>
     let searchTimeout;
     const searchInput = document.getElementById('searchInput');
@@ -349,10 +323,9 @@
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
             autoSubmit();
-        }, 400); // 400ms delay after typing finishes
+        }, 400);
     });
 
-    // Submits the form automatically
     function autoSubmit() {
         form.submit();
     }
