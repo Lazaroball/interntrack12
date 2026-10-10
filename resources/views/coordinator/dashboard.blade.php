@@ -254,7 +254,7 @@
         </div>
     </section>
 
-    {{-- ── Recent Activity ───────────────────────────────────────── --}}
+    {{-- ── Recentt Activity ───────────────────────────────────────── --}}
     <section aria-label="Recent activity">
         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
             <div class="flex items-center justify-between mb-5">
