@@ -11,44 +11,10 @@
     <style>[x-cloak] { display: none !important; }</style>
 </head>
 
-@php
-    /*
-    |--------------------------------------------------------------------------
-    | Coordinator navigation (single source of truth for desktop + mobile)
-    |--------------------------------------------------------------------------
-    */
-    $coordinatorNav = [
-        [
-            'label'  => 'Dashboard',
-            'url'    => route('coordinator.dashboard'),
-            'active' => request()->routeIs('coordinator.dashboard'),
-        ],
-        [
-            'label'  => 'Students',
-            'url'    => route('coordinator.students.index'),
-            'active' => request()->routeIs('coordinator.students.*'),
-        ],
-        [
-            'label'  => 'Requirements',
-            'url'    => route('coordinator.requirements.review.index'),
-            'active' => request()->routeIs('coordinator.requirements.*'),
-        ],
-        [
-            'label'  => 'Partner Schools',
-            'url'    => route('coordinator.partner-schools.index'),
-            'active' => request()->routeIs('coordinator.partner-schools.*'),
-        ],
-        [
-            'label'  => 'Deployments',
-            'url'    => route('coordinator.deployments.index'),
-            'active' => request()->routeIs('coordinator.deployments.*'),
-        ],
-    ];
-@endphp
-
 <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
 
 <x-coordinator-nav />
+
 {{-- ════════════════════════════════════════════════════════════
      MAIN LAYOUT WRAPPER
 ════════════════════════════════════════════════════════════ --}}
@@ -121,176 +87,64 @@
         </div>
     </div>
 
-    {{-- ── Statistics Section Grid ───────────────────────────────── --}}
+    {{-- ── Statistics Cards (static, not clickable) ──────────────── --}}
+    @php
+        $cards = [
+            [
+                'key' => 'total_students', 'label' => 'Student Interns',
+                'bg' => 'bg-blue-50', 'stroke' => '#2563eb',
+                'icon' => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+            ],
+            [
+                'key' => 'partner_schools', 'label' => 'Partner Schools',
+                'bg' => 'bg-sky-50', 'stroke' => '#0284c7',
+                'icon' => '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+            ],
+            [
+                'key' => 'pending_deployments', 'label' => 'Pending Deployments',
+                'bg' => 'bg-amber-50', 'stroke' => '#d97706',
+                'icon' => '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+            ],
+            [
+                'key' => 'active_deployments', 'label' => 'Student Deployed',
+                'bg' => 'bg-emerald-50', 'stroke' => '#059669',
+                'icon' => '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+            ],
+            [
+                'key' => 'completed_deployments', 'label' => 'Completed',
+                'bg' => 'bg-blue-50', 'stroke' => '#2563eb',
+                'icon' => '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+            ],
+        ];
+    @endphp
+
     <section aria-label="Statistics overview">
-        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-
-            {{-- Card 1: Total Students --}}
-            <a href="{{ route('coordinator.students.index') }}"
-               class="col-span-1 block bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50
-                      p-5 flex flex-col gap-3 hover:shadow-md hover:shadow-blue-100/60
-                      hover:-translate-y-0.5 transition-all duration-200">
-                <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#2563eb"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
+        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+            @foreach ($cards as $card)
+                <div class="col-span-1 bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50
+                            p-5 flex flex-col gap-3">
+                    <div class="w-10 h-10 rounded-xl {{ $card['bg'] }} flex items-center justify-center flex-shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                             stroke="{{ $card['stroke'] }}" stroke-width="2" stroke-linecap="round"
+                             stroke-linejoin="round" class="w-5 h-5">{!! $card['icon'] !!}</svg>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-extrabold text-slate-800 leading-none">
+                            {{ $stats[$card['key']] ?? 0 }}
+                        </p>
+                        <p class="text-xs font-semibold text-slate-400 mt-1 leading-snug">
+                            {{ $card['label'] }}
+                        </p>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-2xl font-extrabold text-slate-800 leading-none">
-                        {{ $stats['total_students'] }}
-                    </p>
-                    <p class="text-xs font-semibold text-slate-400 mt-1 leading-snug">
-                        Student Interns
-                    </p>
-                </div>
-                <div class="flex items-center gap-1 text-[11px] font-semibold text-blue-600 mt-auto">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3">
-                        <polyline points="18 15 12 9 6 15"/>
-                    </svg>
-                    Total enrolled
-                </div>
-            </a>
-
-            {{-- Card 2: Partner Schools --}}
-            <a href="{{ route('coordinator.partner-schools.index') }}"
-               class="col-span-1 block bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50
-                      p-5 flex flex-col gap-3 hover:shadow-md hover:shadow-blue-100/60
-                      hover:-translate-y-0.5 transition-all duration-200">
-                <div class="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#0284c7"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                        <polyline points="9 22 9 12 15 12 15 22"/>
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-2xl font-extrabold text-slate-800 leading-none">
-                        {{ $stats['partner_schools'] }}
-                    </p>
-                    <p class="text-xs font-semibold text-slate-400 mt-1 leading-snug">
-                        Partner Schools
-                    </p>
-                </div>
-                <div class="flex items-center gap-1 text-[11px] font-semibold text-sky-600 mt-auto">
-                    Accredited Sites
-                </div>
-            </a>
-
-            {{-- Card 3: Pending Deployments (submitted a preferred school, awaiting approval) --}}
-            <a href="{{ route('coordinator.deployments.index') }}"
-               class="col-span-1 block bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50
-                      p-5 flex flex-col gap-3 hover:shadow-md hover:shadow-blue-100/60
-                      hover:-translate-y-0.5 transition-all duration-200">
-                <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#d97706"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                        <line x1="12" y1="9" x2="12" y2="13"/>
-                        <line x1="12" y1="17" x2="12.01" y2="17"/>
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-2xl font-extrabold text-slate-800 leading-none">
-                        {{ $stats['pending_deployments'] }}
-                    </p>
-                    <p class="text-xs font-semibold text-slate-400 mt-1 leading-snug">
-                        Pending Deployments
-                    </p>
-                </div>
-                <div class="text-[11px] font-semibold text-amber-600 mt-auto">
-                    Awaiting approval
-                </div>
-            </a>
-
-            {{-- Card 4: Student Deployed (approved, currently deployed) --}}
-            <a href="{{ route('coordinator.deployments.index') }}"
-               class="col-span-1 block bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50
-                      p-5 flex flex-col gap-3 hover:shadow-md hover:shadow-blue-100/60
-                      hover:-translate-y-0.5 transition-all duration-200">
-                <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#059669"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
-                        <circle cx="12" cy="12" r="10"/>
-                        <polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-2xl font-extrabold text-slate-800 leading-none">
-                        {{ $stats['active_deployments'] }}
-                    </p>
-                    <p class="text-xs font-semibold text-slate-400 mt-1 leading-snug">
-                        Student Deployed
-                    </p>
-                </div>
-                <div class="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 mt-auto">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
-                    Currently deployed
-                </div>
-            </a>
-
-            {{-- Card 5: Completed --}}
-            <a href="{{ route('coordinator.deployments.index') }}"
-               class="col-span-1 block bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50
-                      p-5 flex flex-col gap-3 hover:shadow-md hover:shadow-blue-100/60
-                      hover:-translate-y-0.5 transition-all duration-200">
-                <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#2563eb"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                        <polyline points="22 4 12 14.01 9 11.01"/>
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-2xl font-extrabold text-slate-800 leading-none">
-                        {{ $stats['completed_deployments'] }}
-                    </p>
-                    <p class="text-xs font-semibold text-slate-400 mt-1 leading-snug">
-                        Completed
-                    </p>
-                </div>
-                <div class="text-[11px] font-semibold text-blue-600 mt-auto">
-                    All time total
-                </div>
-            </a>
-
-            {{-- Card 6: Active Supervisors --}}
-            <a href="{{ route('coordinator.partner-schools.index') }}"
-               class="col-span-1 block bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50
-                      p-5 flex flex-col gap-3 hover:shadow-md hover:shadow-blue-100/60
-                      hover:-translate-y-0.5 transition-all duration-200">
-                <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#6366f1"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                        <circle cx="12" cy="7" r="4"/>
-                        <polyline points="16 11 18 13 22 9"/>
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-2xl font-extrabold text-slate-800 leading-none">
-                        {{ $stats['active_supervisors'] }}
-                    </p>
-                    <p class="text-xs font-semibold text-slate-400 mt-1 leading-snug">
-                        Active Supervisors
-                    </p>
-                </div>
-                <div class="text-[11px] font-semibold text-indigo-600 mt-auto">
-                    Available now
-                </div>
-            </a>
-
+            @endforeach
         </div>
     </section>
 
-    {{-- ── Dynamic Interactive Row: Quick Actions + Progress Bars ── --}}
+    {{-- ── Quick Actions + Deployment Overview ───────────────────── --}}
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-6" aria-label="Quick actions and deployment overview">
 
-        {{-- Quick Actions Column --}}
+        {{-- Quick Actions --}}
         <div class="lg:col-span-1 bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6 flex flex-col justify-between gap-4">
             <div>
                 <div class="flex items-center justify-between mb-4">
@@ -299,7 +153,6 @@
                 </div>
 
                 <div class="flex flex-col gap-2">
-                    {{-- Action 1: View Students → /coordinator/students --}}
                     <a href="{{ route('coordinator.students.index') }}"
                        class="flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700
                               active:bg-blue-800 text-white transition-colors duration-150
@@ -319,7 +172,6 @@
                         </div>
                     </a>
 
-                    {{-- Action 2: Partner Schools → /coordinator/partner-schools --}}
                     <a href="{{ route('coordinator.partner-schools.index') }}"
                        class="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200
                               hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700
@@ -338,7 +190,6 @@
                         </div>
                     </a>
 
-                    {{-- Action 3: Deploy Students → /coordinator/deployments (Pending Deployments) --}}
                     <a href="{{ route('coordinator.deployments.index') }}"
                        class="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200
                               hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700
@@ -362,7 +213,7 @@
             </div>
         </div>
 
-        {{-- Deployment Progress Overview Column --}}
+        {{-- Deployment Overview --}}
         <div class="lg:col-span-2 flex flex-col gap-6">
             <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6 h-full flex flex-col justify-between">
                 <div>
@@ -373,60 +224,37 @@
                         </span>
                     </div>
 
+                    @php
+                        $total = max($stats['active_deployments'] + $stats['pending_deployments'] + $stats['completed_deployments'], 1);
+                        $bars = [
+                            ['label' => 'Pending Deployments', 'value' => $stats['pending_deployments'],   'color' => 'bg-amber-500'],
+                            ['label' => 'Student Deployed',    'value' => $stats['active_deployments'],    'color' => 'bg-emerald-500'],
+                            ['label' => 'Completed',           'value' => $stats['completed_deployments'], 'color' => 'bg-blue-500'],
+                        ];
+                    @endphp
+
                     <div class="space-y-5">
-                        @php
-                            $total = max($stats['active_deployments'] + $stats['pending_deployments'] + $stats['completed_deployments'], 1);
-                            $activePercent    = round(($stats['active_deployments']    / $total) * 100);
-                            $pendingPercent   = round(($stats['pending_deployments']   / $total) * 100);
-                            $completedPercent = round(($stats['completed_deployments'] / $total) * 100);
-                        @endphp
-
-                        {{-- Pending Progress --}}
-                        <div>
-                            <div class="flex items-center justify-between mb-1.5">
-                                <span class="text-xs font-semibold text-slate-600">Pending Deployments</span>
-                                <span class="text-xs font-bold text-slate-800">{{ $stats['pending_deployments'] }}</span>
+                        @foreach ($bars as $bar)
+                            @php $pct = round(($bar['value'] / $total) * 100); @endphp
+                            <div>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <span class="text-xs font-semibold text-slate-600">{{ $bar['label'] }}</span>
+                                    <span class="text-xs font-bold text-slate-800">{{ $bar['value'] }}</span>
+                                </div>
+                                <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                    <div class="h-full {{ $bar['color'] }} rounded-full transition-all duration-500"
+                                         style="width: {{ $pct }}%"></div>
+                                </div>
+                                <p class="text-[11px] text-slate-400 mt-1">{{ $pct }}% of total deployments</p>
                             </div>
-                            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div class="h-full bg-amber-500 rounded-full transition-all duration-500"
-                                     style="width: {{ $pendingPercent }}%"></div>
-                            </div>
-                            <p class="text-[11px] text-slate-400 mt-1">{{ $pendingPercent }}% of total deployments</p>
-                        </div>
-
-                        {{-- Student Deployed Progress --}}
-                        <div>
-                            <div class="flex items-center justify-between mb-1.5">
-                                <span class="text-xs font-semibold text-slate-600">Student Deployed</span>
-                                <span class="text-xs font-bold text-slate-800">{{ $stats['active_deployments'] }}</span>
-                            </div>
-                            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div class="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                                     style="width: {{ $activePercent }}%"></div>
-                            </div>
-                            <p class="text-[11px] text-slate-400 mt-1">{{ $activePercent }}% of total deployments</p>
-                        </div>
-
-                        {{-- Completed Progress --}}
-                        <div>
-                            <div class="flex items-center justify-between mb-1.5">
-                                <span class="text-xs font-semibold text-slate-600">Completed</span>
-                                <span class="text-xs font-bold text-slate-800">{{ $stats['completed_deployments'] }}</span>
-                            </div>
-                            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div class="h-full bg-blue-500 rounded-full transition-all duration-500"
-                                     style="width: {{ $completedPercent }}%"></div>
-                            </div>
-                            <p class="text-[11px] text-slate-400 mt-1">{{ $completedPercent }}% of total deployments</p>
-                        </div>
-
+                        @endforeach
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    {{-- ── Activity Log Section ────────────────────────────────── --}}
+    {{-- ── Recent Activity ───────────────────────────────────────── --}}
     <section aria-label="Recent activity">
         <div class="bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50 p-6">
             <div class="flex items-center justify-between mb-5">
