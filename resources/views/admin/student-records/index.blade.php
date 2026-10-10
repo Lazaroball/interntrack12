@@ -2,20 +2,20 @@
 @php
     $archivedTab      = $tab === 'archived';
     $selectedPrograms = array_values(array_filter((array) request('program')));
-    $listParams       = request()->except(['page']);
+
+    $inputCls = 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none
+                 focus:ring-2 focus:ring-blue-300 focus:border-blue-400 hover:border-blue-300 transition-all duration-150';
+    $card     = 'bg-white rounded-2xl border border-slate-100 shadow-sm shadow-blue-50';
 @endphp
 
-<x-app-layout>
+<x-admin-layout title="Student Records">
     <x-slot name="header">
-        <div>
-            <h2 class="text-xl font-bold text-slate-800 leading-tight">Student Records</h2>
-            <p class="text-sm text-slate-400 mt-0.5">
-                Archive finished or dropped students so the coordinator can start fresh. Archived records can be restored or deleted permanently.
-            </p>
-        </div>
+        <p class="text-[11px] font-bold tracking-[0.2em] uppercase text-blue-500 mb-0.5">Super Admin</p>
+        <h1 class="text-2xl font-extrabold text-slate-800 leading-tight">Student Records</h1>
+        <p class="text-sm text-slate-400 mt-0.5">Archive, restore or permanently delete student records.</p>
     </x-slot>
 
-    <div class="py-8"
+    <div class="py-6"
          @keydown.escape.window="close()"
          x-data="{
             selected: [],
@@ -38,7 +38,7 @@
             open(type, student = null) { this.single = student; this.modal = type; this.reason = 'passed'; this.confirmText = ''; },
             close() { this.modal = null; this.single = null; }
          }">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
             {{-- ── Alerts ── --}}
             @if(session('success'))
@@ -66,23 +66,17 @@
             @endif
 
             {{-- ── Summary ── --}}
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="bg-white rounded-xl border border-slate-100 shadow-sm px-5 py-4">
-                    <p class="text-2xl font-extrabold text-slate-800 leading-none">{{ $counts['active'] }}</p>
-                    <p class="text-xs font-semibold text-slate-400 mt-1">Active students</p>
-                </div>
-                <div class="bg-white rounded-xl border border-slate-100 shadow-sm px-5 py-4">
-                    <p class="text-2xl font-extrabold text-emerald-600 leading-none">{{ $counts['completed'] }}</p>
-                    <p class="text-xs font-semibold text-slate-400 mt-1">Completed Internship (can be archived as Passed)</p>
-                </div>
-                <div class="bg-white rounded-xl border border-slate-100 shadow-sm px-5 py-4">
-                    <p class="text-2xl font-extrabold text-slate-800 leading-none">{{ $counts['passed'] }}</p>
-                    <p class="text-xs font-semibold text-slate-400 mt-1">Archived as Passed</p>
-                </div>
-                <div class="bg-white rounded-xl border border-slate-100 shadow-sm px-5 py-4">
-                    <p class="text-2xl font-extrabold text-slate-800 leading-none">{{ $counts['dropped'] }}</p>
-                    <p class="text-xs font-semibold text-slate-400 mt-1">Archived as Dropped</p>
-                </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                @foreach([
+                    ['Active students',     $counts['active']],
+                    ['Archived as Passed',  $counts['passed']],
+                    ['Archived as Dropped', $counts['dropped']],
+                ] as [$label, $value])
+                    <div class="{{ $card }} px-5 py-4 hover:shadow-md hover:shadow-blue-100/60 transition-shadow duration-200">
+                        <p class="text-2xl font-extrabold text-slate-800 leading-none">{{ $value }}</p>
+                        <p class="text-xs font-semibold text-slate-400 mt-1">{{ $label }}</p>
+                    </div>
+                @endforeach
             </div>
 
             {{-- ── Tabs ── --}}
@@ -103,23 +97,19 @@
 
             {{-- ── Filters ── --}}
             <form method="GET" action="{{ route('admin.student-records.index') }}"
-                  class="flex flex-wrap gap-3 items-end bg-white rounded-xl border border-slate-100 shadow-sm px-5 py-4">
+                  class="{{ $card }} flex flex-wrap gap-3 items-end px-5 py-4">
                 <input type="hidden" name="tab" value="{{ $tab }}">
 
                 <div class="flex-1 min-w-[200px]">
                     <label class="block text-xs font-semibold text-slate-500 mb-1.5">Search</label>
                     <input type="text" name="search" value="{{ request('search') }}" placeholder="Name or student number…"
-                           class="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-800
-                                  placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-300
-                                  focus:border-blue-400 hover:border-blue-300 transition-all duration-150">
+                           class="{{ $inputCls }} placeholder:text-slate-400">
                 </div>
 
                 {{-- Program (multi-select) --}}
                 <div class="relative w-56" x-data="{ open: false }" @click.outside="open = false">
                     <label class="block text-xs font-semibold text-slate-500 mb-1.5">Program</label>
-                    <button type="button" @click="open = !open"
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left text-sm text-slate-700
-                                   hover:border-blue-300 focus:ring-2 focus:ring-blue-300 outline-none transition-all duration-150">
+                    <button type="button" @click="open = !open" class="{{ $inputCls }} text-left">
                         {{ count($selectedPrograms) ? count($selectedPrograms) . ' selected' : 'All programs' }}
                     </button>
                     <div x-show="open" x-transition style="display:none"
@@ -139,9 +129,7 @@
 
                 <div class="w-36">
                     <label class="block text-xs font-semibold text-slate-500 mb-1.5">Year level</label>
-                    <select name="year_level"
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none
-                                   focus:ring-2 focus:ring-blue-300 focus:border-blue-400 hover:border-blue-300 transition-all duration-150">
+                    <select name="year_level" class="{{ $inputCls }}">
                         <option value="">All</option>
                         @foreach($yearLevels as $y)
                             <option value="{{ $y }}" @selected((string) request('year_level') === (string) $y)>Year {{ $y }}</option>
@@ -151,9 +139,7 @@
 
                 <div class="w-36">
                     <label class="block text-xs font-semibold text-slate-500 mb-1.5">Block</label>
-                    <select name="block"
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none
-                                   focus:ring-2 focus:ring-blue-300 focus:border-blue-400 hover:border-blue-300 transition-all duration-150">
+                    <select name="block" class="{{ $inputCls }}">
                         <option value="">All</option>
                         @foreach($blocks as $b)
                             <option value="{{ $b }}" @selected((string) request('block') === (string) $b)>Block {{ $b }}</option>
@@ -166,9 +152,7 @@
 
                 <div class="w-48">
                     <label class="block text-xs font-semibold text-slate-500 mb-1.5">Internship</label>
-                    <select name="internship"
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none
-                                   focus:ring-2 focus:ring-blue-300 focus:border-blue-400 hover:border-blue-300 transition-all duration-150">
+                    <select name="internship" class="{{ $inputCls }}">
                         <option value="">Any</option>
                         <option value="completed"  @selected(request('internship') === 'completed')>Completed</option>
                         <option value="incomplete" @selected(request('internship') === 'incomplete')>Not completed</option>
@@ -178,9 +162,7 @@
                 @if($archivedTab)
                     <div class="w-40">
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">Archived as</label>
-                        <select name="archived_as"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none
-                                       focus:ring-2 focus:ring-blue-300 focus:border-blue-400 hover:border-blue-300 transition-all duration-150">
+                        <select name="archived_as" class="{{ $inputCls }}">
                             <option value="">Passed &amp; Dropped</option>
                             <option value="passed"  @selected(request('archived_as') === 'passed')>Passed</option>
                             <option value="dropped" @selected(request('archived_as') === 'dropped')>Dropped</option>
@@ -189,9 +171,7 @@
 
                     <div class="w-64">
                         <label class="block text-xs font-semibold text-slate-500 mb-1.5">Archive batch</label>
-                        <select name="batch"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none
-                                       focus:ring-2 focus:ring-blue-300 focus:border-blue-400 hover:border-blue-300 transition-all duration-150">
+                        <select name="batch" class="{{ $inputCls }}">
                             <option value="">All batches</option>
                             @foreach($batches as $batch)
                                 <option value="{{ $batch->archive_batch }}" @selected(request('batch') === $batch->archive_batch)>
@@ -205,9 +185,7 @@
 
                 <div class="w-28">
                     <label class="block text-xs font-semibold text-slate-500 mb-1.5">Per page</label>
-                    <select name="per_page"
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none
-                                   focus:ring-2 focus:ring-blue-300 focus:border-blue-400 hover:border-blue-300 transition-all duration-150">
+                    <select name="per_page" class="{{ $inputCls }}">
                         @foreach([10, 25, 50, 100] as $n)
                             <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }}</option>
                         @endforeach
@@ -230,7 +208,7 @@
 
             {{-- ── Selection bar ── --}}
             <div x-show="selected.length > 0 || allMatching" x-transition style="display:none"
-                 class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+                 class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-3">
                 <p class="text-sm text-blue-800">
                     <span class="font-bold" x-text="count"></span>
                     <span x-text="count === 1 ? 'student selected' : 'students selected'"></span>
@@ -269,7 +247,7 @@
             </div>
 
             {{-- ── Table ── --}}
-            <div class="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+            <div class="{{ $card }} overflow-hidden">
                 @if($students->isEmpty())
                     <div class="flex flex-col items-center justify-center py-20 gap-2 text-center">
                         <p class="text-sm font-semibold text-slate-600">
@@ -302,13 +280,13 @@
                                             : ['Student', 'Program', 'Year / Block', 'Internship', 'Actions'];
                                     @endphp
                                     @foreach($columns as $col)
-                                        <th class="px-5 py-3.5 text-left text-xs font-bold tracking-wider text-slate-500">{{ $col }}</th>
+                                        <th class="px-5 py-3.5 text-left text-[11px] font-bold uppercase tracking-widest text-slate-400">{{ $col }}</th>
                                     @endforeach
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-50">
                                 @foreach($students as $student)
-                                    <tr class="hover:bg-blue-50/40 transition-colors duration-100">
+                                    <tr class="hover:bg-slate-50/60 transition-colors duration-100">
                                         <td class="px-5 py-4">
                                             <input type="checkbox" :value="{{ $student->id }}" x-model="selected"
                                                    @change="allMatching = false"
@@ -331,8 +309,8 @@
                                         @if(!$archivedTab)
                                             <td class="px-5 py-4">
                                                 @if($student->internship_completed_at)
-                                                    <span class="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">
-                                                        Completed
+                                                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Completed
                                                     </span>
                                                     <p class="text-[11px] text-slate-400 mt-0.5">{{ $student->internship_completed_at->format('M d, Y') }}</p>
                                                 @else
@@ -344,16 +322,20 @@
                                                 <button type="button"
                                                         @click="open('archive', { id: {{ $student->id }}, name: @js($student->full_name) })"
                                                         class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600
-                                                               hover:bg-slate-50 hover:border-blue-300 transition-all duration-150">
+                                                               hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-all duration-150">
                                                     Archive
                                                 </button>
                                             </td>
                                         @else
                                             <td class="px-5 py-4">
                                                 @if($student->archive_reason === 'passed')
-                                                    <span class="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">Passed</span>
+                                                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Passed
+                                                    </span>
                                                 @else
-                                                    <span class="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-xs font-semibold text-orange-700">Dropped</span>
+                                                    <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Dropped
+                                                    </span>
                                                 @endif
                                             </td>
 
@@ -390,7 +372,7 @@
                     </div>
 
                     @if($students->hasPages())
-                        <div class="border-t border-slate-100 px-5 py-4">
+                        <div class="border-t border-slate-100 bg-slate-50/50 px-5 py-4">
                             {{ $students->links() }}
                         </div>
                     @endif
@@ -408,7 +390,7 @@
 
         {{-- Archive --}}
         <div x-show="modal === 'archive'" x-transition.opacity style="display:none" @click.self="close()"
-             class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+             class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
             <form method="POST" action="{{ route('admin.student-records.archive') }}"
                   class="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-lg p-6 space-y-5">
                 @csrf
@@ -484,7 +466,7 @@
 
         {{-- Restore --}}
         <div x-show="modal === 'restore'" x-transition.opacity style="display:none" @click.self="close()"
-             class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+             class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
             <form method="POST" action="{{ route('admin.student-records.restore') }}"
                   class="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6 space-y-5">
                 @csrf
@@ -520,7 +502,7 @@
 
         {{-- Permanent delete --}}
         <div x-show="modal === 'delete'" x-transition.opacity style="display:none" @click.self="close()"
-             class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+             class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
             <form method="POST" action="{{ route('admin.student-records.force-delete') }}"
                   class="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-md p-6 space-y-5">
                 @csrf
@@ -570,4 +552,4 @@
             </form>
         </div>
     </div>
-</x-app-layout>
+</x-admin-layout>

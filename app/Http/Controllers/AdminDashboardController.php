@@ -17,13 +17,16 @@ class AdminDashboardController extends Controller
     public function index(): View
     {
         // Recent activity logs
-        try {
-            $recentActivity = ActivityLog::latest()
-                ->take(10)
-                ->get();
-        } catch (\Exception $e) {
-            $recentActivity = collect();
-        }
+       try {
+    $recentActivity = ActivityLog::with('user')
+        ->whereHas('user', fn ($q) => $q->where('role', 'admin'))
+        ->latest()
+        ->take(10)
+        ->get();
+} catch (\Exception $e) {
+    report($e);
+    $recentActivity = collect();
+}
 
         return view('admin.dashboard', [
             'stats' => [

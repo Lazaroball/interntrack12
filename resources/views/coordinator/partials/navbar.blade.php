@@ -39,16 +39,15 @@
     <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
 
-            {{-- Brand --}}
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-blue-600 shadow shadow-blue-200 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                    <img src="{{ asset('images/logo.png') }}" alt="InternTrack Logo" class="w-full h-full object-contain p-1" />
-                </div>
-                <div class="leading-tight">
-                    <span class="text-base font-extrabold text-slate-800 tracking-tight">InternTrack</span>
-                    <span class="hidden sm:block text-[10px] font-semibold text-blue-500 tracking-widest uppercase -mt-0.5">UCU · CTE</span>
-                </div>
-            </div>
+           {{-- Brand --}}
+<a href="{{ route('coordinator.dashboard') }}" class="flex items-center gap-3">
+    <img src="{{ asset('images/CTE.jpg') }}" alt="CTE logo"
+         class="w-9 h-9 rounded-lg object-cover flex-shrink-0">
+    <div class="leading-tight">
+        <span class="text-base font-extrabold text-slate-800 tracking-tight">InternTrack</span>
+        <span class="hidden sm:block text-[10px] font-semibold text-blue-500 tracking-widest uppercase -mt-0.5">UCU · CTE</span>
+    </div>
+</a>
 
             {{-- Center Nav --}}
             <nav class="hidden md:flex items-center gap-1" aria-label="Coordinator navigation">

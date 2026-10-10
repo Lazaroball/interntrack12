@@ -1,19 +1,8 @@
 {{-- resources/views/admin/users/create.blade.php --}}
-<x-app-layout>
+<x-admin-layout title="Add Account">
     <x-slot name="header">
-        <div class="flex items-center gap-3">
-            <a href="{{ route('admin.users.index') }}"
-               class="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200
-                      bg-white text-slate-500 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600
-                      transition-all duration-150">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                     stroke-linejoin="round" class="w-4 h-4">
-                    <polyline points="15 18 9 12 15 6"/>
-                </svg>
-            </a>
-            <h2 class="text-xl font-bold text-slate-800">Add New Account</h2>
-        </div>
+        <p class="text-[11px] font-bold tracking-[0.2em] uppercase text-blue-500 mb-0.5">Super Admin</p>
+        <h1 class="text-2xl font-extrabold text-slate-800 leading-tight">Add New Account</h1>
     </x-slot>
 
     <div class="py-8">

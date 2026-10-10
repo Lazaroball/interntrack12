@@ -26,6 +26,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ $title ? $title . ' – ' : '' }}InternTrack</title>
+    <link rel="icon" href="{{ asset('images/CTE.jpg') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
@@ -51,17 +52,9 @@
             {{-- Logo + System Identity --}}
             <header class="flex flex-col items-center gap-3 text-center">
 
-                {{-- Logo mark --}}
-                <div class="w-16 h-16 rounded-2xl bg-blue-600 shadow-md shadow-blue-200
-                            flex items-center justify-center flex-shrink-0"
-                     aria-hidden="true">
-                    {{-- Graduation cap icon --}}
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-                         fill="white" class="w-9 h-9">
-                        <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
-                        <path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
-                    </svg>
-                </div>
+               {{-- Logo mark --}}
+<img src="{{ asset('images/CTE.jpg') }}" alt="CTE logo"
+     class="w-16 h-16 rounded-2xl object-cover shadow-md shadow-blue-200 flex-shrink-0">
 
                 {{-- System name --}}
                 <div>

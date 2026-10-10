@@ -1,17 +1,16 @@
-{{-- resources/views/admin/users/index.blade.php --}}
-<x-app-layout>
+<x-admin-layout title="Manage Users">
     <x-slot name="header">
-        <div class="flex items-center justify-between">
-            <h2 class="text-xl font-bold text-slate-800 leading-tight">
-                User Management
-            </h2>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <p class="text-[11px] font-bold tracking-[0.2em] uppercase text-blue-500 mb-0.5">Super Admin</p>
+                <h1 class="text-2xl font-extrabold text-slate-800 leading-tight">User Management</h1>
+                <p class="text-sm text-slate-400 mt-0.5">Coordinator and supervisor accounts</p>
+            </div>
             <a href="{{ route('admin.users.create') }}"
-               class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm
-                      font-semibold text-white shadow-sm hover:bg-blue-700 active:bg-blue-800
-                      transition-colors duration-150">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                     stroke-linejoin="round" class="w-4 h-4" aria-hidden="true">
+               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700
+                      active:bg-blue-800 text-white text-sm font-semibold transition-colors duration-150 shadow shadow-blue-200">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4" aria-hidden="true">
                     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
                 Add Account

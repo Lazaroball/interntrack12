@@ -1,10 +1,9 @@
 <?php
 
-
 namespace App\Http\Controllers\Admin;
 
+use App\Models\ActivityLog;
 use App\Http\Controllers\Controller;
-
 use App\Models\User;
 use App\Models\Coordinator;
 use App\Models\Supervisor;
@@ -34,9 +33,9 @@ class AdminUserController extends Controller
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name',  'like', "%{$search}%")
-                  ->orWhere('email',      'like', "%{$search}%")
-                  ->orWhere('name',       'like', "%{$search}%");
+                  ->orWhere('last_name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('name', 'like', "%{$search}%");
             });
         }
 
@@ -65,275 +64,315 @@ class AdminUserController extends Controller
         return view('admin.users.create');
     }
 
-   
-
-// ─────────────────────────────────────────────
-//  STORE
-// ─────────────────────────────────────────────
-public function store(Request $request)
-{
-    $validated = $request->validate([
-        'first_name'    => ['required', 'string', 'max:100'],
-        'last_name'     => ['required', 'string', 'max:100'],
-        'middle_name'   => ['nullable', 'string', 'max:100'],
-        'email'         => ['required', 'email', 'max:255', 'unique:users,email'],
-        'mobile_number' => ['nullable', 'string', 'max:20'],
-        'role'          => ['required', Rule::in(self::MANAGED_ROLES)],
-        'password'      => ['required', 'string', 'min:8', 'confirmed'],
-    ]);
-
-    DB::transaction(function () use ($validated) {
-
-        /*
-        |----------------------------------------------------------------
-        | Create User Account
-        |----------------------------------------------------------------
-        */
-        $user = User::create([
-            'first_name'           => $validated['first_name'],
-            'last_name'            => $validated['last_name'],
-            'middle_name'          => $validated['middle_name'] ?? null,
-            'name'                 => trim($validated['first_name'].' '.$validated['last_name']),
-            'email'                => $validated['email'],
-            'mobile_number'        => $validated['mobile_number'] ?? null,
-            'role'                 => $validated['role'],
-            'password'             => Hash::make($validated['password']),
-            'status'               => true,
-            'must_change_password' => false,
-        ]);
-
-        /*
-        |----------------------------------------------------------------
-        | Create Coordinator Profile (linked via user_id)
-        |----------------------------------------------------------------
-        */
-        if ($validated['role'] === 'coordinator') {
-
-            $user->coordinator()->create([
-                'employee_number' => null,
-                'first_name'      => $validated['first_name'],
-                'middle_name'     => $validated['middle_name'] ?? null,
-                'last_name'       => $validated['last_name'],
-                'department'      => null,
-                'position'        => null,
-                'status'          => true,
-            ]);
-        }
-
-        /*
-        |----------------------------------------------------------------
-        | Create Supervisor Profile
-        |----------------------------------------------------------------
-        */
-        if ($validated['role'] === 'supervisor') {
-
-            $user->supervisor()->create([
-                'employee_number' => null,
-                'first_name'      => $validated['first_name'],
-                'middle_name'     => $validated['middle_name'] ?? null,
-                'last_name'       => $validated['last_name'],
-                'department'      => null,
-                'status'          => true,
-            ]);
-        }
-    });
-
-    return redirect()
-        ->route('admin.users.index')
-        ->with('success', 'Account created successfully.');
-}
     // ─────────────────────────────────────────────
-//  EDIT
-// ─────────────────────────────────────────────
-public function edit(User $user)
-{
-    $this->authorizeManaged($user);
-
-    return view('admin.users.edit', compact('user'));
-}
-
-// ─────────────────────────────────────────────
-//  UPDATE
-// ─────────────────────────────────────────────
-public function update(Request $request, User $user)
-{
-    $this->authorizeManaged($user);
-
-    $validated = $request->validate([
-        'first_name'    => ['required', 'string', 'max:100'],
-        'last_name'     => ['required', 'string', 'max:100'],
-        'middle_name'   => ['nullable', 'string', 'max:100'],
-        'email'         => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-        'mobile_number' => ['nullable', 'string', 'max:20'],
-        'role'          => ['required', Rule::in(self::MANAGED_ROLES)],
-        'status'        => ['required', 'boolean'],
-    ]);
-
-   // Save old role before updating
-$oldRole = $user->role;
-
-// Update User
-$user->update([
-    'first_name'    => $validated['first_name'],
-    'last_name'     => $validated['last_name'],
-    'middle_name'   => $validated['middle_name'] ?? null,
-    'name'          => trim($validated['first_name'] . ' ' . $validated['last_name']),
-    'email'         => $validated['email'],
-    'mobile_number' => $validated['mobile_number'] ?? null,
-    'role'          => $validated['role'],
-    'status'        => (bool) $validated['status'],
-]);
-
-/*
-|--------------------------------------------------------------------------
-| Role Changed?
-|--------------------------------------------------------------------------
-*/
-
-if ($oldRole !== $validated['role']) {
-
-    // Remove old profile
-    if ($oldRole === 'coordinator' && $user->coordinator) {
-        $user->coordinator()->delete();
-    }
-
-    if ($oldRole === 'supervisor' && $user->supervisor) {
-        $user->supervisor()->delete();
-    }
-
-    // Create Coordinator profile
-    if ($validated['role'] === 'coordinator') {
-
-        $user->coordinator()->create([
-            'employee_number' => 'COORD-' . time(),
-            'first_name'      => $validated['first_name'],
-            'middle_name'     => $validated['middle_name'] ?? null,
-            'last_name'       => $validated['last_name'],
-            'department'      => 'College of Teacher Education',
-            'position'        => 'Coordinator',
-            'status'          => (bool) $validated['status'],
+    //  STORE
+    // ─────────────────────────────────────────────
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'first_name'    => ['required', 'string', 'max:100'],
+            'last_name'     => ['required', 'string', 'max:100'],
+            'middle_name'   => ['nullable', 'string', 'max:100'],
+            'email'         => ['required', 'email', 'max:255', 'unique:users,email'],
+            'mobile_number' => ['nullable', 'string', 'max:20'],
+            'role'          => ['required', Rule::in(self::MANAGED_ROLES)],
+            'password'      => ['required', 'string', 'min:8', 'confirmed'],
         ]);
+
+        DB::transaction(function () use ($validated) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Create User Account
+            |--------------------------------------------------------------------------
+            */
+            $user = User::create([
+                'first_name'           => $validated['first_name'],
+                'last_name'            => $validated['last_name'],
+                'middle_name'          => $validated['middle_name'] ?? null,
+                'name'                 => trim($validated['first_name'] . ' ' . $validated['last_name']),
+                'email'                => $validated['email'],
+                'mobile_number'        => $validated['mobile_number'] ?? null,
+                'role'                 => $validated['role'],
+                'password'             => Hash::make($validated['password']),
+                'status'               => true,
+                'must_change_password' => false,
+            ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | Create Coordinator Profile (linked via user_id)
+            |--------------------------------------------------------------------------
+            */
+            if ($validated['role'] === 'coordinator') {
+
+                $user->coordinator()->create([
+                    'employee_number' => null,
+                    'first_name'      => $validated['first_name'],
+                    'middle_name'     => $validated['middle_name'] ?? null,
+                    'last_name'       => $validated['last_name'],
+                    'department'      => null,
+                    'position'        => null,
+                    'status'          => true,
+                ]);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Create Supervisor Profile
+            |--------------------------------------------------------------------------
+            */
+            if ($validated['role'] === 'supervisor') {
+
+                $user->supervisor()->create([
+                    'employee_number' => null,
+                    'first_name'      => $validated['first_name'],
+                    'middle_name'     => $validated['middle_name'] ?? null,
+                    'last_name'       => $validated['last_name'],
+                    'department'      => null,
+                    'status'          => true,
+                ]);
+            }
+
+            // Record Admin activity
+            ActivityLog::record(
+                'Created account',
+                'Users',
+                "Created {$validated['role']} account for {$user->name}.",
+                $user
+            );
+        });
+
+        return redirect()
+            ->route('admin.users.index')
+            ->with('success', 'Account created successfully.');
     }
 
-    // Create Supervisor profile
-    if ($validated['role'] === 'supervisor') {
+    // ─────────────────────────────────────────────
+    //  EDIT
+    // ─────────────────────────────────────────────
+    public function edit(User $user)
+    {
+        $this->authorizeManaged($user);
 
-        $user->supervisor()->create([
-            'employee_number' => 'SUP-' . time(),
-            'first_name'      => $validated['first_name'],
-            'middle_name'     => $validated['middle_name'] ?? null,
-            'last_name'       => $validated['last_name'],
-            'department'      => 'College of Teacher Education',
-            'status'          => (bool) $validated['status'],
+        return view('admin.users.edit', compact('user'));
+    }
+
+    // ─────────────────────────────────────────────
+    //  UPDATE
+    // ─────────────────────────────────────────────
+    public function update(Request $request, User $user)
+    {
+        $this->authorizeManaged($user);
+
+        $validated = $request->validate([
+            'first_name'    => ['required', 'string', 'max:100'],
+            'last_name'     => ['required', 'string', 'max:100'],
+            'middle_name'   => ['nullable', 'string', 'max:100'],
+            'email'         => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'mobile_number' => ['nullable', 'string', 'max:20'],
+            'role'          => ['required', Rule::in(self::MANAGED_ROLES)],
+            'status'        => ['required', 'boolean'],
         ]);
-    }
 
-} else {
+        // Save old role before updating
+        $oldRole = $user->role;
 
-    // Update existing Coordinator profile
-    if ($user->role === 'coordinator' && $user->coordinator) {
-
-        $user->coordinator->update([
-            'first_name'  => $validated['first_name'],
-            'middle_name' => $validated['middle_name'] ?? null,
-            'last_name'   => $validated['last_name'],
-            'status'      => (bool) $validated['status'],
+        // Update User
+        $user->update([
+            'first_name'    => $validated['first_name'],
+            'last_name'     => $validated['last_name'],
+            'middle_name'   => $validated['middle_name'] ?? null,
+            'name'          => trim($validated['first_name'] . ' ' . $validated['last_name']),
+            'email'         => $validated['email'],
+            'mobile_number' => $validated['mobile_number'] ?? null,
+            'role'          => $validated['role'],
+            'status'        => (bool) $validated['status'],
         ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Role Changed?
+        |--------------------------------------------------------------------------
+        */
+
+        if ($oldRole !== $validated['role']) {
+
+            // Remove old profile
+            if ($oldRole === 'coordinator' && $user->coordinator) {
+                $user->coordinator()->delete();
+            }
+
+            if ($oldRole === 'supervisor' && $user->supervisor) {
+                $user->supervisor()->delete();
+            }
+
+            // Create Coordinator profile
+            if ($validated['role'] === 'coordinator') {
+
+                $user->coordinator()->create([
+                    'employee_number' => 'COORD-' . time(),
+                    'first_name'      => $validated['first_name'],
+                    'middle_name'     => $validated['middle_name'] ?? null,
+                    'last_name'       => $validated['last_name'],
+                    'department'      => 'College of Teacher Education',
+                    'position'        => 'Coordinator',
+                    'status'          => (bool) $validated['status'],
+                ]);
+            }
+
+            // Create Supervisor profile
+            if ($validated['role'] === 'supervisor') {
+
+                $user->supervisor()->create([
+                    'employee_number' => 'SUP-' . time(),
+                    'first_name'      => $validated['first_name'],
+                    'middle_name'     => $validated['middle_name'] ?? null,
+                    'last_name'       => $validated['last_name'],
+                    'department'      => 'College of Teacher Education',
+                    'status'          => (bool) $validated['status'],
+                ]);
+            }
+
+        } else {
+
+            // Update existing Coordinator profile
+            if ($user->role === 'coordinator' && $user->coordinator) {
+
+                $user->coordinator->update([
+                    'first_name'  => $validated['first_name'],
+                    'middle_name' => $validated['middle_name'] ?? null,
+                    'last_name'   => $validated['last_name'],
+                    'status'      => (bool) $validated['status'],
+                ]);
+            }
+
+            // Update existing Supervisor profile
+            if ($user->role === 'supervisor' && $user->supervisor) {
+
+                $user->supervisor->update([
+                    'first_name'  => $validated['first_name'],
+                    'middle_name' => $validated['middle_name'] ?? null,
+                    'last_name'   => $validated['last_name'],
+                    'status'      => (bool) $validated['status'],
+                ]);
+            }
+        }
+
+        // Record Admin activity
+        ActivityLog::record(
+            'Updated account',
+            'Users',
+            "Updated the account of {$user->name}.",
+            $user
+        );
+
+        return redirect()
+            ->route('admin.users.index')
+            ->with('success', 'Account updated successfully.');
     }
 
-    // Update existing Supervisor profile
-    if ($user->role === 'supervisor' && $user->supervisor) {
+    // ─────────────────────────────────────────────
+    //  DESTROY
+    // ─────────────────────────────────────────────
+    public function destroy(User $user)
+    {
+        $this->authorizeManaged($user);
 
-        $user->supervisor->update([
-            'first_name'  => $validated['first_name'],
-            'middle_name' => $validated['middle_name'] ?? null,
-            'last_name'   => $validated['last_name'],
-            'status'      => (bool) $validated['status'],
-        ]);
+        // Record Admin activity before deleting the user
+        ActivityLog::record(
+            'Deleted account',
+            'Users',
+            "Deleted the {$user->role} account of {$user->name} ({$user->email}).",
+            $user
+        );
+
+        if ($user->coordinator) {
+            $user->coordinator->delete();
+        }
+
+        if ($user->supervisor) {
+            $user->supervisor->delete();
+        }
+
+        $user->delete();
+
+        return redirect()
+            ->route('admin.users.index')
+            ->with('success', 'Account deleted successfully.');
     }
-}
 
-return redirect()
-    ->route('admin.users.index')
-    ->with('success', 'Account updated successfully.');
-}
-// ─────────────────────────────────────────────
-//  DESTROY
-// ─────────────────────────────────────────────
-public function destroy(User $user)
-{
-    $this->authorizeManaged($user);
+    // ─────────────────────────────────────────────
+    //  ACTIVATE
+    // ─────────────────────────────────────────────
+    public function activate(User $user)
+    {
+        $this->authorizeManaged($user);
 
-    if ($user->coordinator) {
-        $user->coordinator->delete();
-    }
-
-    if ($user->supervisor) {
-        $user->supervisor->delete();
-    }
-
-    $user->delete();
-
-    return redirect()
-        ->route('admin.users.index')
-        ->with('success', 'Account deleted successfully.');
-}
-
-// ─────────────────────────────────────────────
-//  ACTIVATE
-// ─────────────────────────────────────────────
-public function activate(User $user)
-{
-    $this->authorizeManaged($user);
-
-    $user->update([
-        'status' => true,
-    ]);
-
-    if ($user->coordinator) {
-        $user->coordinator->update([
+        $user->update([
             'status' => true,
         ]);
+
+        if ($user->coordinator) {
+            $user->coordinator->update([
+                'status' => true,
+            ]);
+        }
+
+        if ($user->supervisor) {
+            $user->supervisor->update([
+                'status' => true,
+            ]);
+        }
+
+        // Record Admin activity
+        ActivityLog::record(
+            'Activated account',
+            'Users',
+            "Activated the account of {$user->name}.",
+            $user
+        );
+
+        return redirect()
+            ->route('admin.users.index')
+            ->with('success', "{$user->name}'s account has been activated.");
     }
 
-    if ($user->supervisor) {
-        $user->supervisor->update([
-            'status' => true,
-        ]);
-    }
+    // ─────────────────────────────────────────────
+    //  DEACTIVATE
+    // ─────────────────────────────────────────────
+    public function deactivate(User $user)
+    {
+        $this->authorizeManaged($user);
 
-    return redirect()
-        ->route('admin.users.index')
-        ->with('success', "{$user->name}'s account has been activated.");
-}
-
-// ─────────────────────────────────────────────
-//  DEACTIVATE
-// ─────────────────────────────────────────────
-public function deactivate(User $user)
-{
-    $this->authorizeManaged($user);
-
-    $user->update([
-        'status' => false,
-    ]);
-
-    if ($user->coordinator) {
-        $user->coordinator->update([
+        $user->update([
             'status' => false,
         ]);
-    }
 
-    if ($user->supervisor) {
-        $user->supervisor->update([
-            'status' => false,
-        ]);
-    }
+        if ($user->coordinator) {
+            $user->coordinator->update([
+                'status' => false,
+            ]);
+        }
 
-    return redirect()
-        ->route('admin.users.index')
-        ->with('success', "{$user->name}'s account has been deactivated.");
-}
+        if ($user->supervisor) {
+            $user->supervisor->update([
+                'status' => false,
+            ]);
+        }
+
+        // Record Admin activity
+        ActivityLog::record(
+            'Deactivated account',
+            'Users',
+            "Deactivated the account of {$user->name}.",
+            $user
+        );
+
+        return redirect()
+            ->route('admin.users.index')
+            ->with('success', "{$user->name}'s account has been deactivated.");
+    }
 
     // ─────────────────────────────────────────────
     //  RESET PASSWORD
@@ -349,6 +388,15 @@ public function deactivate(User $user)
             'password'            => Hash::make($temporary),
             'must_change_password' => true,
         ]);
+
+        // Record Admin activity
+        // Password itself is deliberately NOT logged.
+        ActivityLog::record(
+            'Reset password',
+            'Users',
+            "Reset the password of {$user->name}.",
+            $user
+        );
 
         return redirect()
             ->route('admin.users.index')
