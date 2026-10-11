@@ -39,18 +39,15 @@
     <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
 
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow shadow-blue-200 flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" class="w-5 h-5">
-                        <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
-                        <path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z"/>
-                    </svg>
-                </div>
+            {{-- Brand --}}
+            <a href="{{ route('student.dashboard') }}" class="flex items-center gap-3">
+                <img src="{{ asset('images/CTE.jpg') }}" alt="CTE logo"
+                     class="w-9 h-9 rounded-lg object-cover flex-shrink-0">
                 <div class="leading-tight">
                     <span class="text-base font-extrabold text-slate-800 tracking-tight">InternTrack</span>
                     <span class="hidden sm:block text-[10px] font-semibold text-blue-500 tracking-widest uppercase -mt-0.5">UCU · CTE</span>
                 </div>
-            </div>
+            </a>
 
             {{-- Desktop nav --}}
             <nav class="hidden md:flex items-center gap-1" aria-label="Student navigation">
